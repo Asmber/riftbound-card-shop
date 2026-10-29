@@ -521,6 +521,7 @@
                 <span class="card-id-pill">${card.id}</span>
                 <span class="card-qty-badge" style="display:${qty > 0 ? 'block' : 'none'};">×${qty}</span>
                 <img
+                  class="${card.type === 'Battlefield' ? 'battlefield-rot-img' : ''}"
                   src="${card.imgSmall}"
                   data-fallback="${card.imgFallbackSmall}"
                   alt="${card.name} (${card.id})"
@@ -550,17 +551,16 @@
         return `
           <tr class="${qty > 0 ? 'in-cart-row' : ''}" data-card-id="${card.id}" data-hover-card="${card.id}">
             <td>
-              <img
-                class="list-thumb"
-                src="${card.imgSmall}"
-                data-fallback="${card.imgFallbackSmall}"
-                alt="${card.name}"
-                loading="lazy"
-                data-action="detail"
-                data-id="${card.id}"
-                style="cursor:pointer;"
-                onerror="if(this.dataset.fallback && this.src!==this.dataset.fallback){this.src=this.dataset.fallback;}"
-              />
+              <div class="list-thumb-wrap" data-action="detail" data-id="${card.id}" style="cursor:pointer;">
+                <img
+                  class="list-thumb ${card.type === 'Battlefield' ? 'battlefield-rot-img' : ''}"
+                  src="${card.imgSmall}"
+                  data-fallback="${card.imgFallbackSmall}"
+                  alt="${card.name}"
+                  loading="lazy"
+                  onerror="if(this.dataset.fallback && this.src!==this.dataset.fallback){this.src=this.dataset.fallback;}"
+                />
+              </div>
             </td>
             <td style="font-family:monospace;font-weight:700;">${card.id}</td>
             <td>
@@ -635,15 +635,15 @@
 
     container.innerHTML = entries.map(({ card, qty }) => `
       <div class="cart-item-row" data-hover-card="${card.id}">
-        <img
-          class="cart-item-thumb"
-          src="${card.imgSmall}"
-          data-fallback="${card.imgFallbackSmall}"
-          alt="${card.name}"
-          data-action="detail"
-          data-id="${card.id}"
-          onerror="if(this.dataset.fallback && this.src!==this.dataset.fallback){this.src=this.dataset.fallback;}"
-        />
+        <div class="cart-item-thumb-wrap" data-action="detail" data-id="${card.id}">
+          <img
+            class="cart-item-thumb ${card.type === 'Battlefield' ? 'battlefield-rot-img' : ''}"
+            src="${card.imgSmall}"
+            data-fallback="${card.imgFallbackSmall}"
+            alt="${card.name}"
+            onerror="if(this.dataset.fallback && this.src!==this.dataset.fallback){this.src=this.dataset.fallback;}"
+          />
+        </div>
         <div class="cart-item-info">
           <div class="cart-item-title" data-action="detail" data-id="${card.id}" title="${card.name} (${card.id})">
             ${card.name}
@@ -693,6 +693,7 @@
 
     if (hoverTooltip.dataset.activeCardId !== card.id) {
       hoverTooltip.dataset.activeCardId = card.id;
+      hoverImg.classList.toggle('battlefield-rot-img', card.type === 'Battlefield');
       hoverImg.src = card.imgSmall;
       hoverImg.onerror = () => {
         if (hoverImg.src !== card.imgFallbackSmall) hoverImg.src = card.imgFallbackSmall;
@@ -829,13 +830,16 @@
                     data-id="${p.id}"
                     data-hover-card="${p.id}"
                   >
-                    <img
-                      src="${p.imgSmall}"
-                      data-fallback="${p.imgFallbackSmall}"
-                      alt="${p.id}"
-                      style="width:100%;aspect-ratio:488/680;object-fit:cover;border-radius:6px;border:1px solid var(--border-strong);"
-                      onerror="if(this.dataset.fallback && this.src!==this.dataset.fallback){this.src=this.dataset.fallback;}"
-                    />
+                    <div style="position:relative;width:100%;aspect-ratio:488/680;overflow:hidden;border-radius:6px;border:1px solid var(--border-strong);background:#090d16;">
+                      <img
+                        class="${p.type === 'Battlefield' ? 'battlefield-rot-img' : ''}"
+                        src="${p.imgSmall}"
+                        data-fallback="${p.imgFallbackSmall}"
+                        alt="${p.id}"
+                        style="width:100%;height:100%;object-fit:cover;display:block;"
+                        onerror="if(this.dataset.fallback && this.src!==this.dataset.fallback){this.src=this.dataset.fallback;}"
+                      />
+                    </div>
                     <div style="font-size:10.5px;font-family:monospace;margin-top:3px;color:var(--text-secondary);">${p.id}</div>
                   </div>
                 `).join('')}
@@ -957,6 +961,7 @@
                 <div class="board-card-item" data-hover-card="${card.id}">
                   <div class="art-wrap" data-action="detail" data-id="${card.id}">
                     <img
+                      class="${card.type === 'Battlefield' ? 'battlefield-rot-img' : ''}"
                       src="${card.imgSmall}"
                       data-fallback="${card.imgFallbackSmall}"
                       alt="${escapeHtml(card.name)}"
@@ -1156,13 +1161,21 @@
         ctx.fill();
         ctx.restore();
 
-        // 裁剪并绘制卡图
+        // 裁剪并绘制卡图（战场/横版卡图自动旋转 90° 竖向完整铺满卡框）
         ctx.save();
         drawRoundedRect(ctx, x, y, cardW, cardH, 10);
         ctx.clip();
         const img = imgMap.get(card.id);
         if (img) {
-          ctx.drawImage(img, x, y, cardW, cardH);
+          if (card.type === 'Battlefield' || img.width > img.height) {
+            ctx.save();
+            ctx.translate(x + cardW / 2, y + cardH / 2);
+            ctx.rotate(Math.PI / 2);
+            ctx.drawImage(img, -cardH / 2, -cardW / 2, cardH, cardW);
+            ctx.restore();
+          } else {
+            ctx.drawImage(img, x, y, cardW, cardH);
+          }
         } else {
           ctx.fillStyle = '#1e293b';
           ctx.fillRect(x, y, cardW, cardH);
