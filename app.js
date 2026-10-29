@@ -478,6 +478,21 @@
     document.getElementById('resultCountText').innerHTML =
       `共找到 <strong style="color:var(--gold-light);">${total}</strong> 张卡牌（当前显示前 ${shown} 张）`;
 
+    // 更新移动端筛选按钮上的激活筛选项数量角标
+    const mobileFilterBadge = document.getElementById('mobileFilterBadge');
+    if (mobileFilterBadge) {
+      let activeCount = state.domains.size;
+      if (state.type) activeCount++;
+      if (state.set) activeCount++;
+      if (state.cost !== '') activeCount++;
+      if (state.rarity) activeCount++;
+      if (state.includeAltArt) activeCount++;
+      if (state.includeTokens) activeCount++;
+      if (state.onlyInCart) activeCount++;
+      mobileFilterBadge.textContent = activeCount;
+      mobileFilterBadge.style.display = activeCount > 0 ? 'inline-block' : 'none';
+    }
+
     const gridEl = document.getElementById('cardGridContainer');
     const listEl = document.getElementById('cardListContainer');
     const tbodyEl = document.getElementById('cardListTbody');
@@ -601,6 +616,11 @@
     document.getElementById('statUniqueCards').textContent = entries.length;
     document.getElementById('statMainTypes').textContent = `${unitCount}单 / ${spellCount}法`;
 
+    const mobileBadge = document.getElementById('mobileCartCountBadge');
+    const mobileSub = document.getElementById('mobileCartSubText');
+    if (mobileBadge) mobileBadge.textContent = totalCards;
+    if (mobileSub) mobileSub.textContent = `${entries.length} 种 / ${totalCards} 张`;
+
     const container = document.getElementById('cartItemsContainer');
     if (entries.length === 0) {
       container.innerHTML = `
@@ -664,6 +684,10 @@
   const hoverRules = document.getElementById('hoverPreviewRules');
 
   function showHoverPreview(cardId, clientX, clientY) {
+    // 触屏设备（手机/平板）不弹出跟随鼠标的悬浮框，避免遮挡触屏点击
+    if (window.matchMedia && window.matchMedia('(hover: none), (pointer: coarse)').matches) {
+      return;
+    }
     const card = cardById.get(cardId.toUpperCase());
     if (!card) return;
 
@@ -746,7 +770,7 @@
     document.getElementById('detailModalTitle').textContent = `${card.name} (${card.id})`;
     const body = document.getElementById('cardDetailModalBody');
     body.innerHTML = `
-      <div style="display:grid;grid-template-columns:280px 1fr;gap:22px;align-items:start;">
+      <div class="card-detail-layout">
         <div style="border-radius:12px;overflow:hidden;border:1.5px solid var(--gold-primary);background:#090d16;">
           <img
             src="${card.imgOriginal}"
@@ -1221,9 +1245,25 @@
     return canvas;
   }
 
+  function showGeneratedPreviewImageBox(canvas) {
+    try {
+      const dataUrl = canvas.toDataURL('image/png');
+      const box = document.getElementById('generatedImagePreviewBox');
+      const img = document.getElementById('generatedScreenshotImg');
+      if (box && img) {
+        img.src = dataUrl;
+        box.style.display = 'block';
+        box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
   async function handleDownloadScreenshot() {
     const canvas = await renderScreenshotCanvas();
     if (!canvas) return;
+    showGeneratedPreviewImageBox(canvas);
     canvas.toBlob(blob => {
       if (!blob) return;
       const url = URL.createObjectURL(blob);
@@ -1232,22 +1272,22 @@
       a.href = url;
       a.download = `${title}_${new Date().toISOString().slice(0, 10)}.png`;
       a.click();
-      URL.revokeObjectURL(url);
-      showToast('🖼️ 高清卡牌预览截图 (.PNG) 已开始下载！');
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      showToast('🖼️ 高清预览长图已生成！电脑已自动下载，手机端可直接长按上方预览图保存到相册');
     }, 'image/png');
   }
 
   async function handleCopyScreenshot() {
     const canvas = await renderScreenshotCanvas();
     if (!canvas) return;
+    showGeneratedPreviewImageBox(canvas);
     canvas.toBlob(async blob => {
       if (!blob) return;
       try {
         await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-        showToast('✅ 预览截图已复制到剪贴板！可直接粘贴发送');
+        showToast('✅ 预览截图已复制到剪贴板！手机端也可直接长按上方图片保存');
       } catch (err) {
-        showToast('当前浏览器限制直接复制图片，已为您自动切换为下载 PNG');
-        handleDownloadScreenshot();
+        showToast('📱 已在上方生成高清图片，手机端请直接长按图片保存到相册！');
       }
     }, 'image/png');
   }
@@ -1940,9 +1980,45 @@
       }
     });
 
-    // 侧边栏与顶部按钮事件
-    document.getElementById('toggleCartSidebarBtn').addEventListener('click', () => {
-      document.getElementById('cartSidebar').classList.toggle('collapsed');
+    // 侧边栏与移动端抽屉/底部栏事件
+    const cartSidebar = document.getElementById('cartSidebar');
+    const cartBackdrop = document.getElementById('cartBackdrop');
+
+    const setCartDrawerOpen = isOpen => {
+      cartSidebar.classList.toggle('collapsed', !isOpen);
+      if (cartBackdrop) {
+        cartBackdrop.classList.toggle('active', isOpen && window.innerWidth <= 960);
+      }
+    };
+
+    const toggleCartDrawer = () => {
+      const willOpen = cartSidebar.classList.contains('collapsed');
+      setCartDrawerOpen(willOpen);
+    };
+
+    // 手机/平板竖屏初始加载时默认收起右侧购物车抽屉，避免遮挡主界面
+    if (window.innerWidth <= 960) {
+      setCartDrawerOpen(false);
+    }
+
+    document.getElementById('toggleCartSidebarBtn').addEventListener('click', toggleCartDrawer);
+    document.getElementById('mobileCartBarBtn')?.addEventListener('click', toggleCartDrawer);
+    document.getElementById('closeCartMobileBtn')?.addEventListener('click', () => setCartDrawerOpen(false));
+    cartBackdrop?.addEventListener('click', () => setCartDrawerOpen(false));
+
+    // 移动端顶部「筛选」折叠开关
+    const mobileFilterToggleBtn = document.getElementById('mobileFilterToggleBtn');
+    const filterToolbar = document.getElementById('filterToolbar');
+    if (mobileFilterToggleBtn && filterToolbar) {
+      mobileFilterToggleBtn.addEventListener('click', () => {
+        const opened = filterToolbar.classList.toggle('mobile-open');
+        mobileFilterToggleBtn.classList.toggle('btn-gold', opened);
+      });
+    }
+
+    document.getElementById('closeGeneratedImagePreviewBtn')?.addEventListener('click', () => {
+      const box = document.getElementById('generatedImagePreviewBox');
+      if (box) box.style.display = 'none';
     });
 
     document.getElementById('clearCartBtn').addEventListener('click', () => {
@@ -1959,11 +2035,13 @@
     // 打开预览看板 & 截图导出弹窗
     const openPreviewBoard = () => {
       hideHoverPreview();
+      if (window.innerWidth <= 960) setCartDrawerOpen(false);
       renderVisualPreviewBoard();
       document.getElementById('previewBoardModal').classList.add('open');
     };
     document.getElementById('openPreviewBoardBtn').addEventListener('click', openPreviewBoard);
     document.getElementById('cartOpenPreviewBtn').addEventListener('click', openPreviewBoard);
+    document.getElementById('mobilePreviewBarBtn')?.addEventListener('click', openPreviewBoard);
 
     [
       'boardTitleInput',
@@ -1986,11 +2064,13 @@
     // 打开纯文本表格导出弹窗
     const openTextExport = () => {
       hideHoverPreview();
+      if (window.innerWidth <= 960) setCartDrawerOpen(false);
       renderTextExportContent();
       document.getElementById('textExportModal').classList.add('open');
     };
     document.getElementById('openTextExportBtn').addEventListener('click', openTextExport);
     document.getElementById('cartOpenTextBtn').addEventListener('click', openTextExport);
+    document.getElementById('mobileTextBarBtn')?.addEventListener('click', openTextExport);
 
     // 绑定导出文本表格的筛选器与字段勾选事件
     document.getElementById('exportDomainGroup').addEventListener('click', e => {
@@ -2124,9 +2204,12 @@
     });
 
     // 批量导入、CSV 文件拖拽与语法帮助
-    document.getElementById('openImportModalBtn').addEventListener('click', () => {
+    const openImportModal = () => {
+      if (window.innerWidth <= 960) setCartDrawerOpen(false);
       document.getElementById('importModal').classList.add('open');
-    });
+    };
+    document.getElementById('openImportModalBtn').addEventListener('click', openImportModal);
+    document.getElementById('mobileImportBarBtn')?.addEventListener('click', openImportModal);
     document.getElementById('confirmImportBtn').addEventListener('click', () => handleImportText());
 
     const csvDropZone = document.getElementById('csvDropZone');
