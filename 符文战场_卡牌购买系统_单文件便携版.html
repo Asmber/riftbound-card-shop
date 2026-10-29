@@ -955,8 +955,8 @@ img.battlefield-rot-img {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 200;
-  background: rgba(5, 8, 15, 0.78);
+  z-index: 2200;
+  background: rgba(5, 8, 15, 0.82);
   backdrop-filter: blur(8px);
   display: none;
   align-items: center;
@@ -974,6 +974,7 @@ img.battlefield-rot-img {
   width: 100%;
   max-width: 1180px;
   max-height: 92vh;
+  max-height: 92dvh;
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-lg);
@@ -990,6 +991,8 @@ img.battlefield-rot-img {
   align-items: center;
   justify-content: space-between;
   background: var(--bg-elevated);
+  flex-shrink: 0;
+  gap: 8px;
 }
 .modal-header h3 {
   font-size: 17px;
@@ -997,6 +1000,7 @@ img.battlefield-rot-img {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .modal-toolbar {
@@ -1007,11 +1011,14 @@ img.battlefield-rot-img {
   align-items: center;
   flex-wrap: wrap;
   gap: 12px;
+  flex-shrink: 0;
 }
 
 .modal-body {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 20px 22px;
 }
 
@@ -1024,6 +1031,7 @@ img.battlefield-rot-img {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 10px;
+  flex-shrink: 0;
 }
 
 /* Interactive Visual Preview Board (Inside Screenshot Modal) */
@@ -1366,12 +1374,22 @@ img.battlefield-rot-img {
     order: 2;
     gap: 6px;
   }
-  /* Hide desktop redundant header buttons since they live in the mobile bottom bar */
+  /* 手机顶部栏保留「筛选」、「预览截图」与「主题切换」，其余收纳在底部常驻导航栏 */
   #openImportModalBtn,
-  #openPreviewBoardBtn,
   #openTextExportBtn,
   #toggleCartSidebarBtn {
     display: none !important;
+  }
+  #openPreviewBoardBtn {
+    height: 32px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+  #openPreviewBoardBtn .btn-label-text {
+    display: none;
+  }
+  #openPreviewBoardBtn::after {
+    content: "导出预览图";
   }
 
   .search-bar-wrap {
@@ -1622,34 +1640,44 @@ img.battlefield-rot-img {
     padding: 0 7px;
   }
 
-  /* Modals fit smartphone screen as bottom-sheet / full-height panel */
+  /* Modals fit smartphone screen cleanly above safe area */
   .modal-backdrop {
     padding: 8px;
-    align-items: flex-end;
+    align-items: center;
   }
   .modal-panel {
-    max-height: 92dvh;
-    border-radius: 16px;
+    max-height: 90vh;
+    max-height: 90dvh;
+    border-radius: 14px;
   }
   .modal-header {
-    padding: 12px 14px;
+    padding: 10px 12px;
   }
   .modal-header h3 {
-    font-size: 15px;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .modal-toolbar {
-    padding: 10px 12px;
-    max-height: 34dvh;
+    padding: 8px 12px;
+    max-height: 24vh;
+    max-height: 24dvh;
     overflow-y: auto;
+    gap: 6px;
   }
   .modal-body {
-    padding: 12px;
+    padding: 10px 12px;
   }
   .modal-footer {
-    padding: 10px 12px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
     flex-direction: column;
     align-items: stretch;
-    gap: 8px;
+    gap: 6px;
+  }
+  #screenshotStatusText {
+    font-size: 11.5px !important;
+    line-height: 1.35;
   }
   .modal-footer-btns {
     width: 100%;
@@ -1659,6 +1687,7 @@ img.battlefield-rot-img {
   .modal-footer-btns .btn {
     flex: 1;
     height: 38px;
+    font-size: 13px;
   }
 
   /* Card Detail Modal stacks image above rules on mobile */
@@ -1999,10 +2028,15 @@ img.battlefield-rot-img {
     <div class="modal-panel">
       <div class="modal-header">
         <h3 id="previewBoardModalTitle">
-          🖼️ 购物车卡牌预览看板 & 高清预览截图导出
-          <span class="brand-badge">支持鼠标悬停放大预览卡牌</span>
+          🖼️ 卡牌预览看板 & 截图导出
+          <span class="brand-badge">支持悬停放大预览</span>
         </h3>
-        <button type="button" class="btn" data-close-modal="previewBoardModal">✕ 关闭</button>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+          <button type="button" id="topDownloadScreenshotBtn" class="btn btn-gold" style="height:34px;padding:0 12px;font-size:12.5px;">
+            ⬇️ 导出预览长图
+          </button>
+          <button type="button" class="btn" style="height:34px;padding:0 10px;" data-close-modal="previewBoardModal">✕ 关闭</button>
+        </div>
       </div>
 
       <div class="modal-toolbar" style="flex-direction:column;align-items:stretch;gap:10px;">
@@ -4804,6 +4838,7 @@ window.RIFT_CARDS = [{"id":"ARC-001","baseCardId":null,"name":"蔚，铲除者",
     });
 
     document.getElementById('downloadScreenshotBtn').addEventListener('click', handleDownloadScreenshot);
+    document.getElementById('topDownloadScreenshotBtn')?.addEventListener('click', handleDownloadScreenshot);
     document.getElementById('copyScreenshotBtn').addEventListener('click', handleCopyScreenshot);
 
     // 打开纯文本表格导出弹窗

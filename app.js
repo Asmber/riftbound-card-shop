@@ -2072,6 +2072,7 @@
     });
 
     document.getElementById('downloadScreenshotBtn').addEventListener('click', handleDownloadScreenshot);
+    document.getElementById('topDownloadScreenshotBtn')?.addEventListener('click', handleDownloadScreenshot);
     document.getElementById('copyScreenshotBtn').addEventListener('click', handleCopyScreenshot);
 
     // 打开纯文本表格导出弹窗

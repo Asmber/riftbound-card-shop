@@ -307,10 +307,15 @@
     <div class="modal-panel">
       <div class="modal-header">
         <h3 id="previewBoardModalTitle">
-          🖼️ 购物车卡牌预览看板 & 高清预览截图导出
-          <span class="brand-badge">支持鼠标悬停放大预览卡牌</span>
+          🖼️ 卡牌预览看板 & 截图导出
+          <span class="brand-badge">支持悬停放大预览</span>
         </h3>
-        <button type="button" class="btn" data-close-modal="previewBoardModal">✕ 关闭</button>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+          <button type="button" id="topDownloadScreenshotBtn" class="btn btn-gold" style="height:34px;padding:0 12px;font-size:12.5px;">
+            ⬇️ 导出预览长图
+          </button>
+          <button type="button" class="btn" style="height:34px;padding:0 10px;" data-close-modal="previewBoardModal">✕ 关闭</button>
+        </div>
       </div>
 
       <div class="modal-toolbar" style="flex-direction:column;align-items:stretch;gap:10px;">
