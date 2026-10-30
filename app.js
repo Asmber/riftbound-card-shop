@@ -2252,7 +2252,130 @@
     }
   }
 
-  // 检测并自动从集换社 App 内置 WebView (window.jhsapp.getToken) 提取登录 Token（零抓包方案）
+  // =========================================================================
+  // 多套购卡单本地存档管理 & 一键分享卡单链接
+  // =========================================================================
+  const CART_PRESETS_STORAGE_KEY = 'riftbound_saved_cart_presets_v1';
+
+  function getSavedCartPresets() {
+    try {
+      const raw = localStorage.getItem(CART_PRESETS_STORAGE_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveCartPresetsList(list) {
+    try {
+      localStorage.setItem(CART_PRESETS_STORAGE_KEY, JSON.stringify(list));
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  function renderCartPresetsSelect(selectedId = '') {
+    const sel = document.getElementById('cartSavedListsSelect');
+    const delBtn = document.getElementById('deleteCartPresetBtn');
+    if (!sel) return;
+    const list = getSavedCartPresets();
+    sel.innerHTML = `<option value="">📂 切换已存购卡单 (${list.length})</option>`;
+    list.forEach(p => {
+      const kinds = Array.isArray(p.items) ? p.items.length : 0;
+      const totalQty = Array.isArray(p.items) ? p.items.reduce((s, it) => s + (Number(it[1]) || 0), 0) : 0;
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = `📋 ${p.name} (${kinds}种/${totalQty}张)`;
+      if (p.id === selectedId) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    if (delBtn) {
+      delBtn.style.display = sel.value ? 'inline-flex' : 'none';
+    }
+  }
+
+  function handleSaveCurrentCartPreset() {
+    if (state.cart.size === 0) {
+      showToast('⚠️ 购物车为空，请先选择卡牌后再保存方案');
+      return;
+    }
+    const list = getSavedCartPresets();
+    const sel = document.getElementById('cartSavedListsSelect');
+    const currentPreset = list.find(p => p.id === sel?.value);
+    const defaultName = currentPreset ? currentPreset.name : `符文卡单_${new Date().toLocaleDateString('zh-CN')}`;
+    const nameInput = prompt('💾 请输入要保存的购卡单方案名称（同名将直接更新）：', defaultName);
+    if (!nameInput || !nameInput.trim()) return;
+    const cleanName = nameInput.trim();
+    const items = [];
+    state.cart.forEach((qty, id) => {
+      if (qty > 0) items.push([id, qty]);
+    });
+
+    const existingIdx = list.findIndex(p => p.name === cleanName);
+    let activeId = '';
+    if (existingIdx >= 0) {
+      list[existingIdx].items = items;
+      list[existingIdx].updatedAt = Date.now();
+      activeId = list[existingIdx].id;
+    } else {
+      activeId = `preset_${Date.now()}`;
+      list.unshift({
+        id: activeId,
+        name: cleanName,
+        updatedAt: Date.now(),
+        items
+      });
+    }
+    saveCartPresetsList(list);
+    renderCartPresetsSelect(activeId);
+    showToast(`💾 已保存购卡单方案「${cleanName}」（${items.length} 种卡牌）！`);
+  }
+
+  function handleLoadCartPreset(presetId) {
+    const delBtn = document.getElementById('deleteCartPresetBtn');
+    if (!presetId) {
+      if (delBtn) delBtn.style.display = 'none';
+      return;
+    }
+    const list = getSavedCartPresets();
+    const target = list.find(p => p.id === presetId);
+    if (!target || !Array.isArray(target.items)) return;
+
+    state.cart.clear();
+    target.items.forEach(([id, qty]) => {
+      if (CARD_MAP.has(id) && Number(qty) > 0) {
+        state.cart.set(id, Number(qty));
+      }
+    });
+    saveCartToStorage();
+    updateCartUI();
+    refreshCatalog(false);
+    if (delBtn) delBtn.style.display = 'inline-flex';
+    const wishNameInput = document.getElementById('jhsNewWishListNameInput');
+    if (wishNameInput && target.name) wishNameInput.value = target.name;
+    showToast(`📂 已切换至购卡单「${target.name}」`);
+  }
+
+  function handleDeleteCartPreset() {
+    const sel = document.getElementById('cartSavedListsSelect');
+    const id = sel?.value;
+    if (!id) return;
+    const list = getSavedCartPresets();
+    const target = list.find(p => p.id === id);
+    if (!target) return;
+    if (!confirm(`确定要删除已保存的购卡单存档「${target.name}」吗？`)) return;
+    const next = list.filter(p => p.id !== id);
+    saveCartPresetsList(next);
+    renderCartPresetsSelect('');
+    showToast(`🗑️ 已删除购卡单存档「${target.name}」`);
+  }
+
+  function isMobileEnvironment() {
+    return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '') || window.innerWidth <= 860;
+  }
+
+  // 检测并自动从集换社 App 内置 WebView (window.jhsapp.getToken) 提取登录通行证（零抓包方案）
   function tryAutoExtractJhsAppToken() {
     try {
       let detectedToken = '';
@@ -2270,13 +2393,12 @@
       if (clean && clean.length > 16) {
         const isNew = jhsState.token !== clean;
         jhsState.token = clean;
+        jhsState.isInJhsApp = true;
         localStorage.setItem(JHS_TOKEN_STORAGE_KEY, clean);
-        const banner = document.getElementById('jhsInAppAutoBanner');
-        if (banner) banner.style.display = 'block';
         updateJhsTokenBadgeUI();
         if (isNew) {
           fetchUserJhsWishlists();
-          showToast('🎉 已从集换社 App 内置环境自动提取登录 Token！');
+          showToast('🎉 已在集换社 App 内自动连接您的账号！');
         }
         return true;
       }
@@ -2286,34 +2408,58 @@
     return false;
   }
 
-  // 构建带当前购物车参数的 H5 同步链接，方便在集换社 App 内置 WebView 打开时无缝带入所选卡牌
-  function buildSyncUrlWithCart() {
+  // 构建带当前购物车参数的 H5 链接（支持纯分享模式 & 集换社自动建单模式）
+  function buildSyncUrlWithCart(options = {}) {
+    const { openJhs = true, autoCreate = true } = options;
     const baseUrl = window.location.protocol.startsWith('http')
       ? `${window.location.origin}${window.location.pathname}`
       : 'https://asmber.github.io/riftbound-card-shop/';
     const params = new URLSearchParams();
-    params.set('jhs_auto', '1');
+    if (openJhs) params.set('ja', '1');
+    if (openJhs && autoCreate) params.set('ac', '1');
+
+    const wishName = document.getElementById('jhsNewWishListNameInput')?.value.trim();
+    if (openJhs && wishName && wishName !== '符文战场选购单') {
+      params.set('wn', wishName);
+    }
+
     if (state.cart.size > 0) {
       const pairs = [];
       state.cart.forEach((qty, id) => {
         if (qty > 0) pairs.push(`${id}:${qty}`);
       });
       if (pairs.length > 0) {
-        params.set('cart', pairs.join(','));
+        params.set('c', pairs.join(','));
       }
     }
     return `${baseUrl}?${params.toString()}`;
   }
 
-  // 从 URL 查询参数 (?cart=OGN-001:3,ARC-002:2&jhs_auto=1) 自动恢复购物车并唤醒集换社弹窗
+  // 手机端一键唤起集换社 App 内置页并全自动创建心愿单
+  async function launchJhsAppWithAutoCreate() {
+    if (state.cart.size === 0) {
+      showToast('⚠️ 购物车为空，请先选择要加入心愿单的卡牌');
+      return;
+    }
+    const syncUrl = buildSyncUrlWithCart({ openJhs: true, autoCreate: true });
+    await copyTextSafe(syncUrl);
+    const schemeUrl = `jihuanshe://www.jihuanshe.com/app/customWebView?showNav=1&url=${encodeURIComponent(syncUrl)}`;
+    showToast('🚀 正在唤起集换社 App 自动建单（已同步复制链接备用）...');
+    window.location.href = schemeUrl;
+  }
+
+  // 从 URL 查询参数 (?c=OGN-001:3&ja=1&ac=1) 自动恢复购物车并在集换社 App 内自动触发建单
   function restoreCartFromUrlParams() {
     try {
       const params = new URLSearchParams(window.location.search);
-      const cartParam = params.get('cart');
-      const jhsAuto = params.get('jhs_auto');
+      const cartParam = params.get('c') || params.get('cart');
+      const jhsAuto = params.get('ja') || params.get('jhs_auto');
+      const autoCreate = params.get('ac') || params.get('jhs_autocreate');
+      const wishNameParam = params.get('wn') || params.get('wish_name');
       let restoredCount = 0;
 
       if (cartParam) {
+        state.cart.clear();
         const items = cartParam.split(',');
         items.forEach(pair => {
           const [rawId, rawQty] = pair.split(':');
@@ -2329,37 +2475,93 @@
         }
       }
 
-      if (jhsAuto === '1') {
-        // 清理地址栏参数避免刷新重复触发
+      if (wishNameParam) {
+        const nameInput = document.getElementById('jhsNewWishListNameInput');
+        if (nameInput) nameInput.value = wishNameParam;
+      }
+
+      if (cartParam || jhsAuto) {
         if (window.history && window.history.replaceState) {
           window.history.replaceState({}, document.title, window.location.pathname);
         }
-        setTimeout(() => {
+      }
+
+      if (jhsAuto === '1') {
+        const tryAutoFlow = () => {
           tryAutoExtractJhsAppToken();
+          updateJhsTokenBadgeUI();
+          if (autoCreate === '1' && jhsState.token && !jhsState.hasAutoCreatedInSession && state.cart.size > 0) {
+            jhsState.hasAutoCreatedInSession = true;
+            createJhsWishlistFromCart();
+          }
+        };
+        setTimeout(() => {
           openJhsHubModal('wishlist');
+          tryAutoFlow();
         }, 180);
+        setTimeout(tryAutoFlow, 650);
+        setTimeout(tryAutoFlow, 1400);
+      } else if (restoredCount > 0) {
+        setTimeout(() => {
+          showToast(`🎉 已从分享链接载入 ${restoredCount} 种卡牌到购物车！`);
+        }, 250);
       }
     } catch (e) {
       // ignore
     }
   }
 
+  // 智能分端状态向导更新（自动根据「已连接 / 手机未连接 / 电脑未连接」切换最简界面并刷新电脑扫码二维码）
   function updateJhsTokenBadgeUI() {
     const btnText = document.getElementById('jhsAuthStatusBtnText');
     const toggleBtn = document.getElementById('jhsToggleAuthBoxBtn');
     const input = document.getElementById('jhsTokenInput');
+    const connectedBanner = document.getElementById('jhsInAppAutoBanner');
+    const connectedTitle = document.getElementById('jhsConnectedBannerTitle');
+    const mobileWizard = document.getElementById('jhsMobileWizardBox');
+    const pcWizard = document.getElementById('jhsPcWizardBox');
+    const pcQrImg = document.getElementById('jhsPcSyncQrImg');
+
     if (input && jhsState.token && !input.value) {
       input.value = jhsState.token;
     }
+
+    const hasToken = Boolean(jhsState.token);
+    const isMobile = isMobileEnvironment();
+
+    if (connectedBanner) {
+      connectedBanner.style.display = hasToken ? 'block' : 'none';
+    }
+    if (connectedTitle && hasToken) {
+      connectedTitle.textContent = jhsState.isInJhsApp
+        ? '🎉 已在集换社 App 内自动连接您的账号！点击下方「☁️ 一键在集换社创建心愿单」即可秒建单'
+        : '✅ 已绑定集换社登录通行证！直接点击下方「☁️ 一键在集换社创建心愿单」即可写入全部卡牌';
+    }
+
+    if (mobileWizard) {
+      mobileWizard.style.display = !hasToken && isMobile ? 'block' : 'none';
+    }
+    if (pcWizard) {
+      pcWizard.style.display = !hasToken && !isMobile ? 'block' : 'none';
+      if (!hasToken && !isMobile && pcQrImg) {
+        const syncUrl = buildSyncUrlWithCart({ openJhs: true, autoCreate: true });
+        const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=6&data=${encodeURIComponent(syncUrl)}`;
+        if (pcQrImg.dataset.lastUrl !== syncUrl) {
+          pcQrImg.dataset.lastUrl = syncUrl;
+          pcQrImg.src = qrApiUrl;
+        }
+      }
+    }
+
     if (btnText) {
-      if (jhsState.token) {
-        btnText.textContent = '✅ 已配置 Token (点击管理/复制)';
+      if (hasToken) {
+        btnText.textContent = '✅ 已连接集换社账号';
         if (toggleBtn) {
           toggleBtn.style.borderColor = 'rgba(34, 197, 94, 0.55)';
           toggleBtn.style.color = '#86efac';
         }
       } else {
-        btnText.textContent = '免抓包获取 / 配置 Token';
+        btnText.textContent = '手动粘贴通行证';
         if (toggleBtn) {
           toggleBtn.style.borderColor = '';
           toggleBtn.style.color = '';
@@ -2531,7 +2733,10 @@
 
     tryAutoExtractJhsAppToken();
 
-    const tokenInputVal = document.getElementById('jhsTokenInput')?.value.trim();
+    const tokenInputVal =
+      document.getElementById('jhsTokenInput')?.value.trim() ||
+      document.getElementById('jhsPcQuickTokenInput')?.value.trim() ||
+      '';
     if (tokenInputVal) {
       jhsState.token = tokenInputVal.replace(/^Bearer\s+/i, '').trim();
       localStorage.setItem(JHS_TOKEN_STORAGE_KEY, jhsState.token);
@@ -2539,12 +2744,22 @@
     }
 
     if (!jhsState.token) {
-      const authBox = document.getElementById('jhsAuthConfigBox');
-      if (authBox) {
-        authBox.style.display = 'block';
-        authBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      if (isMobileEnvironment()) {
+        const mobileWizard = document.getElementById('jhsMobileWizardBox');
+        if (mobileWizard) {
+          mobileWizard.style.display = 'block';
+          mobileWizard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        await launchJhsAppWithAutoCreate();
+        return;
       }
-      showToast('🔑 请点击上方「📱 一键在集换社 App 内打开本页」免抓包自动读取 Token，或粘贴已复制的 Token');
+      const pcWizard = document.getElementById('jhsPcWizardBox');
+      if (pcWizard) {
+        pcWizard.style.display = 'block';
+        pcWizard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+      document.getElementById('jhsPcQuickTokenInput')?.focus();
+      showToast('📱 请直接用手机扫下方二维码秒建心愿单，或在右侧粘贴通行证后一键建单');
       return;
     }
 
@@ -3478,8 +3693,33 @@
       }
     });
 
-    document.getElementById('syntaxHelpBtn').addEventListener('click', () => {
+    // 教程与搜索语法弹窗
+    const openTutorialModal = () => {
       document.getElementById('syntaxModal').classList.add('open');
+    };
+    document.getElementById('syntaxHelpBtn')?.addEventListener('click', openTutorialModal);
+    document.getElementById('openGuideHeaderBtn')?.addEventListener('click', openTutorialModal);
+    document.getElementById('jhsOpenTutorialBtn')?.addEventListener('click', openTutorialModal);
+
+    // 购物车多套方案存档与一键分享卡单
+    renderCartPresetsSelect();
+    document.getElementById('saveCartPresetBtn')?.addEventListener('click', handleSaveCurrentCartPreset);
+    document.getElementById('cartSavedListsSelect')?.addEventListener('change', e => {
+      handleLoadCartPreset(e.target.value);
+    });
+    document.getElementById('deleteCartPresetBtn')?.addEventListener('click', handleDeleteCartPreset);
+    document.getElementById('shareCartUrlBtn')?.addEventListener('click', async () => {
+      if (state.cart.size === 0) {
+        showToast('⚠️ 购物车为空，请先选择卡牌后再分享');
+        return;
+      }
+      const shareUrl = buildSyncUrlWithCart({ openJhs: false, autoCreate: false });
+      const ok = await copyTextSafe(shareUrl);
+      if (ok) {
+        showToast('🔗 已复制当前购卡单专属分享链接！发给好友点开即可直接载入整套卡表');
+      } else {
+        showToast('⚠️ 复制失败，请重试');
+      }
     });
 
     // 主题切换
@@ -3533,76 +3773,119 @@
       }
     });
 
-    // 账号 Token 配置折叠与保存
-    document.getElementById('jhsToggleAuthBoxBtn')?.addEventListener('click', () => {
+    // 批量切换版本：全选最低价版本 / 全选平卡普通版
+    document.getElementById('jhsBatchCheapestVerBtn')?.addEventListener('click', () => {
+      const entries = getCartEntriesSorted();
+      if (entries.length === 0) return;
+      entries.forEach(({ card }) => {
+        const versions = jhsVersionsCache.get(card.id) || [];
+        const cheapest = selectCheapestJhsVersion(versions, card);
+        if (cheapest) jhsSelectedVersionMap.set(card.id, Number(cheapest.id));
+      });
+      renderJhsCartTable();
+      showToast('⚡ 已将所有卡牌切换为集换社当前最低在售价版本！');
+    });
+
+    document.getElementById('jhsBatchNormalVerBtn')?.addEventListener('click', () => {
+      const entries = getCartEntriesSorted();
+      if (entries.length === 0) return;
+      entries.forEach(({ card }) => {
+        const versions = jhsVersionsCache.get(card.id) || [];
+        if (versions.length === 0) return;
+        const normalPool = versions.filter(v => {
+          const r = String(v.rarity || '');
+          const num = String(v.number || '');
+          return !/异画|闪|金|签|Showcase|Foil/i.test(r) && !/[a-zA-Z]\s*$/.test(num);
+        });
+        const chosen = selectCheapestJhsVersion(normalPool.length > 0 ? normalPool : versions, card);
+        if (chosen) jhsSelectedVersionMap.set(card.id, Number(chosen.id));
+      });
+      renderJhsCartTable();
+      showToast('🃏 已将所有卡牌优先切换为普通平卡版本！');
+    });
+
+    // 当修改新心愿单名称时，实时更新电脑端扫码同步二维码
+    document.getElementById('jhsNewWishListNameInput')?.addEventListener('input', () => {
+      updateJhsTokenBadgeUI();
+    });
+
+    // 账号通行证配置折叠与保存
+    const toggleAuthBox = () => {
       const box = document.getElementById('jhsAuthConfigBox');
       if (box) {
         box.style.display = box.style.display === 'none' ? 'block' : 'none';
       }
-    });
+    };
+    document.getElementById('jhsToggleAuthBoxBtn')?.addEventListener('click', toggleAuthBox);
+    document.getElementById('jhsOpenAuthManageBtn')?.addEventListener('click', toggleAuthBox);
 
-    // 免抓包：一键在集换社 App 内置 WebView 打开本页（自动带入购物车并触发 window.jhsapp.getToken()）
-    document.getElementById('jhsLaunchAppWebviewBtn')?.addEventListener('click', async () => {
-      const syncUrl = buildSyncUrlWithCart();
-      await copyTextSafe(syncUrl);
-      const schemeUrl = `jihuanshe://www.jihuanshe.com/app/customWebView?showNav=1&url=${encodeURIComponent(syncUrl)}`;
-      showToast('🚀 正在唤起集换社 App 内置页（已同步复制链接备用）...');
-      window.location.href = schemeUrl;
-    });
+    // 手机端一键唤起集换社 App 内置页并全自动创建心愿单
+    document.getElementById('jhsLaunchAppWebviewBtn')?.addEventListener('click', launchJhsAppWithAutoCreate);
 
-    // 免抓包：复制带购物车的同步链接（可发送到集换社私信/评论内点击打开）
-    document.getElementById('jhsCopySyncPageUrlBtn')?.addEventListener('click', async () => {
-      const syncUrl = buildSyncUrlWithCart();
+    // 复制带购物车的同步链接（可发送到集换社私信/评论内点击打开）
+    const handleCopyAutoSyncUrl = async () => {
+      const syncUrl = buildSyncUrlWithCart({ openJhs: true, autoCreate: true });
       const ok = await copyTextSafe(syncUrl);
       if (ok) {
-        showToast('🔗 已复制带购物车的专属链接！发到集换社 App 私信/评论中点击打开即可自动提取 Token');
+        showToast('🔗 已复制本单专属链接！打开集换社 App 发到任意私信/评论中点开，即可全自动创建心愿单');
       } else {
         showToast('⚠️ 复制失败，请手动复制浏览器地址栏链接');
       }
-    });
+    };
+    document.getElementById('jhsCopySyncPageUrlBtn')?.addEventListener('click', handleCopyAutoSyncUrl);
+    document.getElementById('jhsMobileCopySyncUrlBtn')?.addEventListener('click', handleCopyAutoSyncUrl);
 
-    // 一键复制当前提取到的或已保存的集换社 Token（供发给电脑端使用）
+    // 一键复制当前提取到的或已保存的集换社通行证（供发给电脑端使用）
     const handleCopyCurrentToken = async () => {
       tryAutoExtractJhsAppToken();
       const tok = jhsState.token || document.getElementById('jhsTokenInput')?.value.trim() || '';
       const clean = tok.replace(/^Bearer\s+/i, '').trim();
       if (!clean) {
-        showToast('⚠️ 当前尚未获取到集换社 Token，请先在集换社 App 内打开本页或粘贴 Token');
+        showToast('⚠️ 当前尚未获取到通行证，请先在集换社 App 内打开本页');
         return;
       }
       const ok = await copyTextSafe(clean);
       if (ok) {
-        showToast('📋 已复制您的集换社 Bearer Token！可直接发到电脑端粘贴使用');
+        showToast('📋 已复制您的集换社登录通行证！可直接发到电脑端粘贴绑定');
       } else {
-        showToast('⚠️ 复制失败，请展开输入框手动全选复制');
+        showToast('⚠️ 复制失败，请展开管理框手动复制');
       }
     };
     document.getElementById('jhsCopyInAppTokenBtn')?.addEventListener('click', handleCopyCurrentToken);
     document.getElementById('jhsCopySavedTokenBtn')?.addEventListener('click', handleCopyCurrentToken);
 
-    document.getElementById('jhsSaveTokenBtn')?.addEventListener('click', () => {
-      const val = document.getElementById('jhsTokenInput')?.value.trim() || '';
-      const cleanToken = val.replace(/^Bearer\s+/i, '').trim();
+    const handleSaveTokenValue = rawVal => {
+      const cleanToken = String(rawVal || '').replace(/^Bearer\s+/i, '').trim();
       if (!cleanToken) {
-        showToast('请先粘贴有效的集换社 Bearer Token');
+        showToast('请先粘贴从手机端复制过来的集换社登录通行证');
         return;
       }
       jhsState.token = cleanToken;
       localStorage.setItem(JHS_TOKEN_STORAGE_KEY, cleanToken);
+      const input1 = document.getElementById('jhsTokenInput');
+      const input2 = document.getElementById('jhsPcQuickTokenInput');
+      if (input1) input1.value = cleanToken;
+      if (input2) input2.value = '';
       updateJhsTokenBadgeUI();
       fetchUserJhsWishlists();
-      showToast('✅ 集换社 Token 已保存，现在可一键创建云端心愿单！');
+      showToast('✅ 集换社登录通行证已绑定！现在直接点「☁️ 一键在集换社创建心愿单」即可秒建单');
+    };
+
+    document.getElementById('jhsSaveTokenBtn')?.addEventListener('click', () => {
+      handleSaveTokenValue(document.getElementById('jhsTokenInput')?.value);
+    });
+    document.getElementById('jhsPcQuickSaveTokenBtn')?.addEventListener('click', () => {
+      handleSaveTokenValue(document.getElementById('jhsPcQuickTokenInput')?.value);
     });
 
     document.getElementById('jhsClearTokenBtn')?.addEventListener('click', () => {
       jhsState.token = '';
+      jhsState.isInJhsApp = false;
       localStorage.removeItem(JHS_TOKEN_STORAGE_KEY);
       const input = document.getElementById('jhsTokenInput');
       if (input) input.value = '';
-      const banner = document.getElementById('jhsInAppAutoBanner');
-      if (banner) banner.style.display = 'none';
       updateJhsTokenBadgeUI();
-      showToast('🗑️ 已清除保存的集换社 Token');
+      showToast('🗑️ 已清除保存的集换社通行证');
     });
 
     // 一键创建并同步心愿单按钮
@@ -3624,9 +3907,50 @@
       showToast('📋 已复制集换社心愿单配卡与底价清单到剪贴板！');
     });
 
-    // 卖家店铺 1v1 齐卡扫描与心愿单链接导入
+    // 卖家店铺 1v1 齐卡扫描与心愿单链接导入（支持一键读取剪贴板并执行）
     document.getElementById('jhsScanShopBtn')?.addEventListener('click', scanJhsSellerStore);
+    document.getElementById('jhsPasteAndScanShopBtn')?.addEventListener('click', async () => {
+      try {
+        if (navigator.clipboard && navigator.clipboard.readText) {
+          const clipText = (await navigator.clipboard.readText()) || '';
+          if (clipText.trim()) {
+            const input = document.getElementById('jhsShopUrlInput');
+            if (input) input.value = clipText.trim();
+          }
+        }
+      } catch (e) {
+        // 浏览器询问或限制读取剪贴板时回退到输入框内已有值
+      }
+      const input = document.getElementById('jhsShopUrlInput');
+      if (!input?.value.trim()) {
+        input?.focus();
+        showToast('📋 请在输入框内长按或按 Ctrl+V 粘贴店铺链接');
+        return;
+      }
+      scanJhsSellerStore();
+    });
+
     document.getElementById('jhsConfirmImportWishUrlBtn')?.addEventListener('click', () => importFromJhsWishUrl());
+    document.getElementById('jhsPasteAndImportWishBtn')?.addEventListener('click', async () => {
+      try {
+        if (navigator.clipboard && navigator.clipboard.readText) {
+          const clipText = (await navigator.clipboard.readText()) || '';
+          if (clipText.trim()) {
+            const input = document.getElementById('jhsImportWishUrlInput');
+            if (input) input.value = clipText.trim();
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+      const input = document.getElementById('jhsImportWishUrlInput');
+      if (!input?.value.trim()) {
+        input?.focus();
+        showToast('📋 请在输入框内长按或按 Ctrl+V 粘贴集换社心愿单分享链接');
+        return;
+      }
+      importFromJhsWishUrl();
+    });
 
     // 初始渲染
     updateCartUI();

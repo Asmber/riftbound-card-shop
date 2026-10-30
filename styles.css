@@ -1353,6 +1353,61 @@ img.battlefield-rot-img {
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.75);
 }
 
+/* Cart Presets Bar & Visual Step-by-Step Guide Components */
+.cart-presets-bar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.guide-section-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.step-flow-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.step-num-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #f97316 0%, #eab308 100%);
+  color: #090d16;
+  font-size: 11px;
+  font-weight: 900;
+  margin-right: 4px;
+  vertical-align: baseline;
+}
+
+.step-pills-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 8px;
+}
+
+.step-pill-item {
+  background: rgba(9, 13, 22, 0.6);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
 /* Desktop / Mobile helper classes */
 .mobile-only-btn {
   display: none !important;

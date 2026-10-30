@@ -1361,6 +1361,61 @@ img.battlefield-rot-img {
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.75);
 }
 
+/* Cart Presets Bar & Visual Step-by-Step Guide Components */
+.cart-presets-bar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.guide-section-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.step-flow-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.step-num-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #f97316 0%, #eab308 100%);
+  color: #090d16;
+  font-size: 11px;
+  font-weight: 900;
+  margin-right: 4px;
+  vertical-align: baseline;
+}
+
+.step-pills-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 8px;
+}
+
+.step-pill-item {
+  background: rgba(9, 13, 22, 0.6);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
 /* Desktop / Mobile helper classes */
 .mobile-only-btn {
   display: none !important;
@@ -1853,7 +1908,7 @@ img.battlefield-rot-img {
       />
       <div class="search-actions-right">
         <button type="button" id="clearSearchBtn" class="icon-btn-sm" title="清除搜索" style="display:none;">✕</button>
-        <button type="button" id="syntaxHelpBtn" class="icon-btn-sm" title="查看搜索语法帮助">语法?</button>
+        <button type="button" id="syntaxHelpBtn" class="icon-btn-sm" title="查看 30 秒上手教程与搜索语法" style="color:var(--gold-light);border-color:rgba(212,175,55,0.45);font-weight:700;">📖 教程/语法</button>
       </div>
     </div>
 
@@ -1861,6 +1916,9 @@ img.battlefield-rot-img {
     <div class="header-actions">
       <button type="button" id="mobileFilterToggleBtn" class="btn mobile-only-btn" title="展开/收起筛选面板">
         🌪️ 筛选 <span id="mobileFilterBadge" class="cart-badge-pill" style="display:none;">0</span>
+      </button>
+      <button type="button" id="openGuideHeaderBtn" class="btn" title="查看 3 步同步集换社心愿单、店铺比对与操作教程">
+        📖 <span class="btn-label-text">使用教程</span>
       </button>
       <button type="button" id="openJhsModalBtn" class="btn btn-jhs" title="集换社 App 深度联动：一键构建集换社新心愿单、查全网最低价、卖家店铺库存比对">
         ⚡ <span class="btn-label-text">集换社联动</span>
@@ -2078,6 +2136,22 @@ img.battlefield-rot-img {
           <div class="val" id="statMainTypes" style="font-size:12px;line-height:24px;">0单 / 0法</div>
           <div class="lbl">单位 / 法术</div>
         </div>
+      </div>
+
+      <!-- 多套购卡单本地存档 / 切换 & 一键分享卡单栏 -->
+      <div class="cart-presets-bar">
+        <select id="cartSavedListsSelect" class="filter-select" style="flex:1;min-width:0;height:28px;font-size:11.5px;padding:0 6px;" title="选择切换本地保存的多套购卡单方案">
+          <option value="">📂 切换已存购卡单 (0)</option>
+        </select>
+        <button type="button" id="saveCartPresetBtn" class="icon-btn-sm" style="height:28px;padding:0 8px;color:var(--gold-light);border-color:rgba(212,175,55,0.4);" title="将当前购物车保存为命名卡单方案">
+          💾 存单
+        </button>
+        <button type="button" id="deleteCartPresetBtn" class="icon-btn-sm" style="height:28px;padding:0 6px;display:none;" title="删除当前选中的已存卡单">
+          🗑️
+        </button>
+        <button type="button" id="shareCartUrlBtn" class="icon-btn-sm" style="height:28px;padding:0 8px;color:#38bdf8;border-color:rgba(56,189,248,0.4);" title="一键复制带当前全套卡牌的分享链接，发给好友点开即可直接载入">
+          🔗 分享
+        </button>
       </div>
 
       <!-- 已选卡牌列表 -->
@@ -2493,39 +2567,102 @@ img.battlefield-rot-img {
     <div style="font-size:14px;color:#e2e8f0;">自动识别卡牌名称、卡牌编号与数量并加入购物车</div>
   </div>
 
-  <!-- 弹窗 5：搜索语法帮助弹窗 -->
+  <!-- 弹窗 5：30秒上手图文教程 & 搜索语法指南 -->
   <div id="syntaxModal" class="modal-backdrop" role="dialog" aria-modal="true">
-    <div class="modal-panel modal-md">
+    <div class="modal-panel" style="max-width:860px;">
       <div class="modal-header">
-        <h3>🔍 RiftAtlas 卡牌搜索语法指南</h3>
+        <h3>
+          📖 30 秒上手图文教程 &amp; 搜索语法指南
+          <span class="brand-badge">零门槛直通集换社 App</span>
+        </h3>
         <button type="button" class="btn" data-close-modal="syntaxModal">✕ 关闭</button>
       </div>
-      <div class="modal-body" style="font-size:13.5px;line-height:1.7;">
-        <p style="margin-bottom:10px;">直接输入任意中文/英文词即可同时匹配<strong>卡牌名称、卡牌编号、规则文本、关键词与英雄标签</strong>。此外还支持以下精确语法：</p>
-        <ul style="padding-left:20px;display:flex;flex-direction:column;gap:6px;">
-          <li><code>t:单位</code> 或 <code>t:unit</code> / <code>t:法术</code> / <code>t:传奇</code> —— 按卡牌类型筛选</li>
-          <li><code>d:炽烈</code> 或 <code>d:fury</code> / <code>d:翠意</code> / <code>d:灵光</code> —— 按领域筛选</li>
-          <li><code>c:2</code> / <code>c&lt;=3</code> / <code>c&gt;=5</code> —— 按法力费用比较筛选</li>
-          <li><code>m&gt;=4</code> / <code>m:3</code> —— 按战力 (Might) 比较筛选</li>
-          <li><code>r:稀有</code> 或 <code>r:epic</code> / <code>r:showcase</code> —— 按稀有度筛选</li>
-          <li><code>s:ogn</code> / <code>s:arc</code> / <code>s:起源</code> —— 按系列代号或名称筛选</li>
-          <li><code>k:游走</code> / <code>k:急速</code> —— 按关键词筛选</li>
-        </ul>
+      <div class="modal-body" style="font-size:13px;line-height:1.65;display:flex;flex-direction:column;gap:14px;">
+        <!-- 模块 1：集换社心愿单 3 步同步 -->
+        <div class="guide-section-card" style="border-color:rgba(249,115,22,0.5);background:linear-gradient(135deg,rgba(249,115,22,0.12),rgba(15,22,38,0.92));">
+          <div style="font-size:14.5px;font-weight:800;color:#fdba74;margin-bottom:8px;">
+            ⚡ 一、如何把选好的卡牌一键同步到【集换社 App 心愿单】？（全程免抓包）
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;">
+            <div style="background:rgba(9,13,22,0.65);padding:10px 12px;border-radius:8px;border:1px solid var(--border-subtle);">
+              <div style="font-weight:800;color:#38bdf8;margin-bottom:6px;">📱 场景 A：您在【手机】上选卡（最简单）</div>
+              <div class="step-flow-list">
+                <div><span class="step-num-pill">1</span> 选好卡牌后，点击底部或右上角的 <strong>「⚡ 集换社」</strong>。</div>
+                <div><span class="step-num-pill">2</span> 直接点击大按钮 <strong>「🚀 一键唤起集换社 App 并自动创建心愿单」</strong>（若微信等浏览器拦截跳转，点「🔗 复制本单专属链接」发到集换社任意私信/评论里点开）。</div>
+                <div><span class="step-num-pill">3</span> 页面在集换社 App 内打开后，会<strong>全自动为您创建好心愿单并写入全部卡牌与数量</strong>！直接去集换社点「一键匹配/配单」即可下单。</div>
+              </div>
+            </div>
+            <div style="background:rgba(9,13,22,0.65);padding:10px 12px;border-radius:8px;border:1px solid var(--border-subtle);">
+              <div style="font-weight:800;color:var(--gold-light);margin-bottom:6px;">💻 场景 B：您在【电脑】上选卡</div>
+              <div class="step-flow-list">
+                <div><span class="step-num-pill">方式1</span> <strong>手机扫码秒建单（免配置）</strong>：在电脑上点开「⚡ 集换社联动」，直接用手机扫屏幕上的<strong>同步二维码</strong>，整套购物车即刻传到手机并直通集换社建单！</div>
+                <div><span class="step-num-pill">方式2</span> <strong>电脑绑定一次永久直连</strong>：手机在集换社 App 内打开本页后，点顶部绿色条的 <strong>「📋 复制我的通行证」</strong> 发到电脑粘贴保存，以后在电脑上永远只需点 1 下直接建单！</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 模块 2：店铺比对与日常实用技巧 -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;">
+          <div class="guide-section-card">
+            <div style="font-size:13.5px;font-weight:800;color:#34d399;margin-bottom:6px;">
+              🏪 二、卖家店铺 1v1 齐卡比对（省多店运费）
+            </div>
+            <div class="step-flow-list" style="font-size:12.5px;color:var(--text-secondary);">
+              <div><span class="step-num-pill">1</span> 在集换社 App 进入任意卖家店铺，点右上角 <strong>「分享 ➔ 复制链接」</strong>。</div>
+              <div><span class="step-num-pill">2</span> 打开本工具 <strong>「⚡ 集换社联动 ➔ 🏪 2. 卖家店铺比对」</strong>。</div>
+              <div><span class="step-num-pill">3</span> 点击 <strong>「📋 粘贴链接并扫描」</strong>，即可立刻看到该店有您购物车的哪几张卡、缺哪几张卡及店内总价！</div>
+            </div>
+          </div>
+
+          <div class="guide-section-card">
+            <div style="font-size:13.5px;font-weight:800;color:var(--gold-light);margin-bottom:6px;">
+              💾 三、多套卡单存档、分享与导图技巧
+            </div>
+            <div class="step-flow-list" style="font-size:12.5px;color:var(--text-secondary);">
+              <div>• <strong>多套卡单存档</strong>：右侧购物车上方可点 <strong>「💾 存单」</strong> 保存多套配卡方案（如不同英雄卡组），随时下拉切换。</div>
+              <div>• <strong>一键分享卡单</strong>：点购物车 <strong>「🔗 分享」</strong> 可复制专属链接，发给好友点开即可直接载入整套卡表。</div>
+              <div>• <strong>高清预览长图</strong>：点 <strong>「🖼️ 预览看板」</strong> 可勾选「💰 显示集换社最低价」并导出 2x 超清 PNG 长图（手机端支持长按保存）。</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 模块 3：搜索语法速查 -->
+        <div class="guide-section-card">
+          <div style="font-size:13.5px;font-weight:800;color:#38bdf8;margin-bottom:6px;">
+            🔍 四、RiftAtlas 高级搜索语法速查（支持多条件空格组合，如 <code>d:炽烈 t:单位 c&lt;=3</code>）
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:6px;font-size:12.5px;">
+            <div>• <code>t:单位</code> / <code>t:法术</code> / <code>t:传奇</code> —— 按类型</div>
+            <div>• <code>d:炽烈</code> / <code>d:翠意</code> / <code>d:灵光</code> —— 按领域</div>
+            <div>• <code>c:2</code> / <code>c&lt;=3</code> / <code>c&gt;=5</code> —— 按法力费用</div>
+            <div>• <code>m&gt;=4</code> / <code>m:3</code> —— 按战力 (Might)</div>
+            <div>• <code>r:稀有</code> / <code>r:史诗</code> / <code>r:异画</code> —— 按稀有度</div>
+            <div>• <code>s:ogn</code> / <code>s:arc</code> / <code>k:急速</code> —— 按系列/关键词</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <span style="font-size:12px;color:var(--text-secondary);">提示：左键点击卡图可直接 +1 加入购物车，右键点击卡图可直接 -1 减少数量</span>
+        <button type="button" class="btn btn-gold" data-close-modal="syntaxModal">我知道了</button>
       </div>
     </div>
   </div>
 
-  <!-- 弹窗 6：集换社 App 深度联动中心（直接构建新心愿单 / 实时全版本最低价 / 卖家店铺配单比对 / 心愿单分享链接导入） -->
+  <!-- 弹窗 6：集换社 App 深度联动中心（智能分端向导 + 一键自动建心愿单 + 实时最低价 + 卖家店铺比对 + 链接导入） -->
   <div id="jhsHubModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="jhsHubModalTitle">
     <div class="modal-panel" style="max-width:1100px;">
       <div class="modal-header">
         <h3 id="jhsHubModalTitle">
           ⚡ 集换社 App 深度联动中心
-          <span class="brand-badge" style="background:rgba(249,115,22,0.2);color:#fdba74;border-color:#f97316;">符文战场 (lol) 实时接口直连</span>
+          <span class="brand-badge" style="background:rgba(249,115,22,0.2);color:#fdba74;border-color:#f97316;">符文战场实时底价 &amp; 心愿单直连</span>
         </h3>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+          <button type="button" id="jhsOpenTutorialBtn" class="btn" style="height:34px;padding:0 10px;font-size:12px;" title="查看图文教程">
+            📖 教程
+          </button>
           <button type="button" id="jhsRefreshPricesBtn" class="btn" style="height:34px;padding:0 10px;font-size:12px;">
-            🔄 刷新实时集换价
+            🔄 刷新集换价
           </button>
           <button type="button" class="btn" style="height:34px;padding:0 10px;" data-close-modal="jhsHubModal">✕ 关闭</button>
         </div>
@@ -2538,7 +2675,7 @@ img.battlefield-rot-img {
             <div style="font-size:13px;font-weight:700;color:var(--text-main);">
               🛒 当前购物车：<span id="jhsSummaryCardsText" style="color:var(--gold-light);">0 种 / 0 张</span>
               <span style="margin:0 8px;color:var(--text-muted);">|</span>
-              <span id="jhsMatchStatusText" style="font-size:12px;color:#38bdf8;">准备就绪（自动取各编号下全版本最低在售价）</span>
+              <span id="jhsMatchStatusText" style="font-size:12px;color:#38bdf8;">准备就绪（默认自动匹配各卡最低在售价版本）</span>
             </div>
           </div>
           <div class="jhs-summary-right">
@@ -2549,7 +2686,7 @@ img.battlefield-rot-img {
 
         <div id="jhsHubTabs" class="jhs-hub-tabs" role="tablist">
           <button type="button" class="jhs-tab-btn active" data-jhs-tab="wishlist">
-            ☁️ 1. 一键构建集换社心愿单 &amp; 实时最低价
+            ☁️ 1. 一键同步到集换社心愿单 &amp; 最低价明细
           </button>
           <button type="button" class="jhs-tab-btn" data-jhs-tab="shop">
             🏪 2. 卖家店铺库存 1v1 配单比对
@@ -2563,132 +2700,170 @@ img.battlefield-rot-img {
       <div class="modal-body">
         <!-- TAB 1: 一键在集换社构建新心愿单 & 实时最低价明细表 -->
         <div id="jhsTabPanel_wishlist" class="jhs-tab-panel">
-          <!-- 集换社 App 内置环境自动识别横幅（当检测到 window.jhsapp 时自动展示） -->
+
+          <!-- 【智能状态卡 A】已连接集换社账号（在集换社 App 内自动识别，或已绑定通行证） -->
           <div id="jhsInAppAutoBanner" style="display:none;margin-bottom:12px;padding:12px 14px;border-radius:10px;background:rgba(16,185,129,0.14);border:1.5px solid #10b981;">
             <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
               <div>
-                <div style="font-size:14px;font-weight:800;color:#34d399;">
-                  🎉 已检测到集换社 App 内置浏览器环境 (`window.jhsapp`)，登录 Token 已自动提取！
+                <div id="jhsConnectedBannerTitle" style="font-size:14px;font-weight:800;color:#34d399;">
+                  ✅ 已连接您的集换社账号！现在可直接点击下方「☁️ 一键创建心愿单」
                 </div>
                 <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">
-                  您现在可以直接点击下方「☁️ 直接在集换社新建心愿单」，或点击右侧按钮复制您的 Token 发到电脑端浏览器永久使用。
+                  如果您平时也在电脑上配卡，可点击右侧按钮复制您的「登录通行证」发给电脑粘贴，电脑端也能永久一键建单。
                 </div>
               </div>
-              <button type="button" id="jhsCopyInAppTokenBtn" class="btn btn-gold" style="height:34px;font-weight:800;">
-                📋 一键复制我的 Token (供电脑使用)
-              </button>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button type="button" id="jhsCopyInAppTokenBtn" class="btn btn-gold" style="height:32px;font-size:12px;font-weight:800;">
+                  📋 复制我的通行证 (供电脑端绑定)
+                </button>
+                <button type="button" id="jhsOpenAuthManageBtn" class="btn" style="height:32px;font-size:12px;">
+                  ⚙️ 管理/更换
+                </button>
+              </div>
             </div>
           </div>
 
-          <!-- 直接在集换社 App 创建新心愿单卡片 -->
+          <!-- 直接在集换社 App 创建新心愿单主卡片 -->
           <div class="jhs-sync-card">
             <div class="jhs-sync-header">
               <div>
-                <div style="font-size:14.5px;font-weight:800;color:#fdba74;">
-                  🚀 一键在集换社构建新心愿单（将购物车全部卡牌与数量直接写入集换社 App）
+                <div style="font-size:15px;font-weight:800;color:#fdba74;">
+                  🚀 将当前购物车一键同步为【集换社 App 心愿单】（含全部卡牌与对应张数）
                 </div>
                 <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">
-                  通过集换社官方接口（<code>POST /api/market/wish-list</code> &amp; <code>/wishes/add</code>）批量写入卡牌与对应张数，完成后在集换社 App 内可直接点击「一键匹配 / 跨店配单」！
+                  同步完成后，在集换社 App 打开该心愿单即可直接使用官方 <strong>「一键匹配 / 跨店凑单」</strong> 功能自动找最便宜卖家下单！
                 </div>
               </div>
               <button type="button" id="jhsToggleAuthBoxBtn" class="btn" style="height:32px;font-size:12px;flex-shrink:0;">
-                🔑 <span id="jhsAuthStatusBtnText">免抓包获取 / 配置 Token</span>
+                🔑 <span id="jhsAuthStatusBtnText">绑定/管理通行证</span>
               </button>
             </div>
 
-            <!-- 账号登录 / 免抓包自动提取 Token 配置折叠框 -->
-            <div id="jhsAuthConfigBox" class="jhs-auth-box" style="display:none;margin-top:10px;">
-              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;">
-                <!-- 免抓包方案：利用集换社 App 内置 WebView 自动注入的 window.jhsapp.getToken() -->
-                <div style="background:var(--bg-surface);padding:12px 14px;border-radius:8px;border:1px solid rgba(249,115,22,0.45);">
-                  <div style="font-size:13px;font-weight:800;color:#fdba74;margin-bottom:6px;">
-                    ✨ 方式 1（强烈推荐·免抓包）：在集换社 App 内打开本页自动读取 Token
-                  </div>
-                  <div style="font-size:11.5px;color:var(--text-secondary);line-height:1.5;margin-bottom:10px;">
-                    集换社 App 内置浏览器会自动注入官方 <code>window.jhsapp.getToken()</code> 接口。<strong>无需安装任何抓包软件或证书</strong>，只需用以下任一方式在集换社 App 内打开本页，即可全自动读取您的登录 Token（还能一键复制发给电脑端）：
-                  </div>
-                  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
-                    <button type="button" id="jhsLaunchAppWebviewBtn" class="btn btn-jhs" style="height:34px;font-size:12px;font-weight:800;">
-                      📱 手机端：一键在集换社 App 内打开本页 (自动带入购物车)
-                    </button>
-                    <button type="button" id="jhsCopySyncPageUrlBtn" class="btn" style="height:34px;font-size:12px;">
-                      🔗 复制带购物车链接 (发到集换社私信/评论点击打开)
-                    </button>
-                  </div>
-                  <div style="font-size:11px;color:#94a3b8;line-height:1.45;">
-                    💡 <strong>操作提示</strong>：① 若在手机浏览器中，直接点上方橙色按钮即可唤起集换社 App 内置页；② 若被浏览器拦截或在电脑端，点「复制带购物车链接」发送到集换社 App 内（如私信/评论）点击打开，页面会自动提取 Token 并展示「一键复制我的 Token」按钮！
-                  </div>
-                </div>
-
-                <!-- 手动粘贴保存 Token -->
-                <div style="background:var(--bg-surface);padding:12px 14px;border-radius:8px;border:1px solid var(--border-subtle);display:flex;flex-direction:column;justify-content:space-between;">
-                  <div>
-                    <div style="font-size:13px;font-weight:800;color:var(--gold-light);margin-bottom:6px;">
-                      🔑 方式 2：粘贴集换社 Bearer Token（保存后长期有效）
-                    </div>
-                    <div style="font-size:11.5px;color:var(--text-secondary);line-height:1.45;margin-bottom:8px;">
-                      将通过方式 1「一键复制」得到的 Token（或手机抓包 <code>api.jihuanshe.com</code> 请求头中的 <code>Authorization: Bearer eyJ...</code>）粘贴到下方：
-                    </div>
-                    <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
-                      <input type="password" id="jhsTokenInput" class="search-input" style="height:34px;padding:0 10px;flex:1;min-width:160px;" placeholder="粘贴 eyJ0eXAiOiJKV1Qi... 或 Bearer Token" />
-                      <button type="button" id="jhsSaveTokenBtn" class="btn btn-accent" style="height:34px;font-size:12px;white-space:nowrap;">💾 保存 Token</button>
-                      <button type="button" id="jhsCopySavedTokenBtn" class="btn" style="height:34px;font-size:12px;white-space:nowrap;" title="复制当前已保存的 Token">📋 复制</button>
-                      <button type="button" id="jhsClearTokenBtn" class="btn" style="height:34px;font-size:12px;white-space:nowrap;">清除</button>
-                    </div>
-                  </div>
-                  <div style="font-size:11px;color:var(--text-secondary);line-height:1.4;">
-                    🔒 Token 仅保存在您当前浏览器的本地存储 (<code>localStorage</code>) 中，直连 <code>api.jihuanshe.com</code>，绝不经过任何第三方服务器。
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 创建新心愿单主操作行 -->
-            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border-subtle);">
+            <!-- 创建新心愿单参数与主按钮行（置顶直观展示） -->
+            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:12px;padding:10px 12px;background:rgba(9,13,22,0.55);border-radius:10px;border:1px solid var(--border-subtle);">
               <label style="font-size:12.5px;display:inline-flex;align-items:center;gap:6px;">
-                目标心愿单：
+                目标位置：
                 <select id="jhsTargetWishlistSelect" class="filter-select" style="height:34px;">
                   <option value="new">➕ 新建独立心愿单（推荐）</option>
                 </select>
               </label>
               <label style="font-size:12.5px;display:inline-flex;align-items:center;gap:6px;">
-                新心愿单名称：
-                <input type="text" id="jhsNewWishListNameInput" class="search-input" style="width:185px;height:34px;padding:0 10px;" value="符文战场选购单" />
+                心愿单名称：
+                <input type="text" id="jhsNewWishListNameInput" class="search-input" style="width:180px;height:34px;padding:0 10px;" value="符文战场选购单" />
               </label>
               <label style="font-size:12.5px;display:inline-flex;align-items:center;gap:5px;cursor:pointer;" title="开启后在集换社配单时不限制具体罕贵度版本，更容易在同一家店铺凑齐">
-                <input type="checkbox" id="jhsIgnoreVersionCheck" checked /> 允许匹配任意版本 (配单更易凑齐)
+                <input type="checkbox" id="jhsIgnoreVersionCheck" checked /> 允许匹配任意版本 (更易同店凑齐)
               </label>
 
               <div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;">
-                <button type="button" id="jhsCreateWishListBtn" class="btn btn-jhs" style="height:36px;font-weight:800;">
-                  ☁️ 直接在集换社新建心愿单并写入全部卡牌
-                </button>
-                <button type="button" id="jhsQuickExportTextBtn" class="btn" style="height:36px;" title="免登录一键复制集换社心愿单格式表格">
-                  📋 复制心愿单配卡表
+                <button type="button" id="jhsCreateWishListBtn" class="btn btn-jhs" style="height:38px;padding:0 16px;font-size:13.5px;font-weight:800;">
+                  ☁️ 一键在集换社创建心愿单
                 </button>
               </div>
             </div>
 
-            <div id="jhsCreateWishProgress" style="font-size:12.5px;color:#fdba74;margin-top:8px;display:none;"></div>
+            <!-- 【智能状态卡 B：手机浏览器未连接时自动展示】一键唤起集换社 App 全自动建单向导 -->
+            <div id="jhsMobileWizardBox" style="display:none;margin-top:12px;padding:12px 14px;border-radius:10px;background:rgba(249,115,22,0.1);border:1.5px dashed rgba(249,115,22,0.55);">
+              <div style="font-size:13.5px;font-weight:800;color:#fed7aa;margin-bottom:8px;">
+                📱 手机端免配置直通集换社（点一下即可带入整套卡牌并自动建单）：
+              </div>
+              <button type="button" id="jhsLaunchAppWebviewBtn" class="btn btn-jhs" style="width:100%;height:42px;font-size:14px;font-weight:900;margin-bottom:10px;box-shadow:0 4px 14px rgba(249,115,22,0.35);">
+                🚀 一键唤起集换社 App 并全自动创建心愿单
+              </button>
+              <div style="background:rgba(9,13,22,0.65);padding:10px 12px;border-radius:8px;font-size:12px;color:var(--text-secondary);line-height:1.55;">
+                <div style="font-weight:700;color:var(--text-main);margin-bottom:4px;">
+                  💡 如果当前浏览器（如微信/部分自带浏览器）拦截了直接唤起 App，只需简单 2 步：
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                  <div>
+                    <span class="step-num-pill">1</span> 点击右侧复制链接 ➔ <span class="step-num-pill">2</span> 打开集换社 App 发给任意私信/评论并<strong>在集换社里点开链接</strong>（点开即自动建好心愿单！）
+                  </div>
+                  <button type="button" id="jhsMobileCopySyncUrlBtn" class="btn btn-gold" style="height:30px;font-size:12px;padding:0 10px;flex-shrink:0;">
+                    🔗 第1步：复制本单专属链接
+                  </button>
+                </div>
+              </div>
+            </div>
 
-            <!-- 写入进度与成功后的集换社 App 唤醒卡片 -->
-            <div id="jhsCreatedWishResultBox" style="display:none;margin-top:12px;padding:12px;border-radius:10px;background:rgba(16,185,129,0.12);border:1.5px solid #10b981;">
+            <!-- 【智能状态卡 C：电脑端浏览器未绑定时自动展示】手机扫码秒建单 + 电脑绑定向导 -->
+            <div id="jhsPcWizardBox" style="display:none;margin-top:12px;">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:12px;">
+                <!-- 电脑端左卡：手机扫码秒建单 -->
+                <div style="background:rgba(9,13,22,0.65);padding:12px 14px;border-radius:10px;border:1.5px solid rgba(249,115,22,0.5);display:flex;gap:14px;align-items:center;">
+                  <div style="background:#fff;padding:6px;border-radius:8px;flex-shrink:0;text-align:center;">
+                    <img id="jhsPcSyncQrImg" crossorigin="anonymous" src="" alt="手机扫码同步购物车" style="width:112px;height:112px;display:block;" />
+                    <div style="font-size:10px;color:#090d16;font-weight:800;margin-top:3px;">📱 手机扫码带走卡单</div>
+                  </div>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:13.5px;font-weight:800;color:#fdba74;margin-bottom:6px;">
+                      ✨ 方式一（免配置推荐）：手机扫码直通集换社建单
+                    </div>
+                    <div class="step-flow-list" style="font-size:12px;color:var(--text-secondary);">
+                      <div><span class="step-num-pill">1</span> 用<strong>手机相机 / 浏览器 / 微信</strong>扫左侧二维码（自动把电脑选好的卡牌传到手机）。</div>
+                      <div><span class="step-num-pill">2</span> 在手机页面点 <strong>「🚀 一键唤起集换社 App」</strong>（或发到集换社私信点开）。</div>
+                      <div><span class="step-num-pill">3</span> 集换社 App 打开后将<strong>全自动为您创建好本套心愿单</strong>！</div>
+                    </div>
+                    <div style="margin-top:8px;">
+                      <button type="button" id="jhsCopySyncPageUrlBtn" class="btn" style="height:28px;font-size:11.5px;padding:0 10px;">
+                        🔗 或复制带购物车的同步链接发到手机
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 电脑端右卡：绑定一次通行证，电脑直接一键建单 -->
+                <div style="background:rgba(9,13,22,0.65);padding:12px 14px;border-radius:10px;border:1px solid var(--border-subtle);display:flex;flex-direction:column;justify-content:space-between;">
+                  <div>
+                    <div style="font-size:13.5px;font-weight:800;color:var(--gold-light);margin-bottom:6px;">
+                      💻 方式二（一劳永逸）：绑定通行证，电脑直接一键建单
+                    </div>
+                    <div class="step-flow-list" style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">
+                      <div><span class="step-num-pill">1</span> 手机在<strong>集换社 App 内</strong>打开过一次本页后，点页面顶部 <strong>「📋 复制我的通行证」</strong>。</div>
+                      <div><span class="step-num-pill">2</span> 发到电脑粘贴在下方并点击保存，<strong>以后电脑端永远只需点 1 下「☁️ 一键创建心愿单」即可完成！</strong></div>
+                    </div>
+                  </div>
+                  <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <input type="password" id="jhsPcQuickTokenInput" class="search-input" style="height:34px;padding:0 10px;flex:1;min-width:150px;" placeholder="在此粘贴手机复制过来的通行证..." />
+                    <button type="button" id="jhsPcQuickSaveTokenBtn" class="btn btn-gold" style="height:34px;font-size:12px;white-space:nowrap;">💾 绑定并保存</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 手动管理/更换通行证折叠抽屉（点击右上角「绑定/管理通行证」时展开） -->
+            <div id="jhsAuthConfigBox" class="jhs-auth-box" style="display:none;margin-top:10px;padding:12px;border-radius:8px;background:var(--bg-surface);border:1px solid var(--border-subtle);">
+              <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+                <span style="font-size:12.5px;font-weight:700;color:var(--gold-light);">🔑 集换社登录通行证 (Token) 手动管理：</span>
+                <span style="font-size:11px;color:var(--text-secondary);">🔒 仅保存在您本地浏览器中，直连集换社官方接口</span>
+              </div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <input type="password" id="jhsTokenInput" class="search-input" style="height:34px;padding:0 10px;flex:1;min-width:180px;" placeholder="粘贴集换社登录通行证 (eyJ0eXAiOiJKV1Qi...)" />
+                <button type="button" id="jhsSaveTokenBtn" class="btn btn-accent" style="height:34px;font-size:12px;white-space:nowrap;">💾 保存通行证</button>
+                <button type="button" id="jhsCopySavedTokenBtn" class="btn" style="height:34px;font-size:12px;white-space:nowrap;" title="复制当前已保存的通行证">📋 复制</button>
+                <button type="button" id="jhsClearTokenBtn" class="btn" style="height:34px;font-size:12px;white-space:nowrap;color:#f87171;">🗑️ 清除</button>
+              </div>
+            </div>
+
+            <div id="jhsCreateWishProgress" style="font-size:13px;font-weight:700;color:#fdba74;margin-top:10px;display:none;"></div>
+
+            <!-- 写入成功后的集换社 App 唤醒卡片 -->
+            <div id="jhsCreatedWishResultBox" style="display:none;margin-top:12px;padding:12px 14px;border-radius:10px;background:rgba(16,185,129,0.14);border:1.5px solid #10b981;">
               <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
                 <div style="flex:1;min-width:220px;">
-                  <div id="jhsCreatedWishTitle" style="font-size:14px;font-weight:800;color:#34d399;">
+                  <div id="jhsCreatedWishTitle" style="font-size:15px;font-weight:800;color:#34d399;">
                     ✅ 已成功在集换社创建心愿单并写入卡牌！
                   </div>
-                  <div id="jhsCreatedWishSub" style="font-size:12px;color:var(--text-secondary);margin-top:4px;">
-                    现在即可直接唤起集换社 App 进入该心愿单，使用官方「一键匹配 / 卖家配单」功能直接下单！
+                  <div id="jhsCreatedWishSub" style="font-size:12.5px;color:var(--text-secondary);margin-top:4px;">
+                    现在即可直接唤起集换社 App 进入该心愿单，点击集换社内的「一键匹配 / 卖家配单」直接下单！
                   </div>
                   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
-                    <a id="jhsOpenCreatedWishAppBtn" href="#" class="btn btn-gold" style="text-decoration:none;height:34px;">
+                    <a id="jhsOpenCreatedWishAppBtn" href="#" class="btn btn-gold" style="text-decoration:none;height:36px;font-weight:800;">
                       📱 一键唤起集换社 App 打开该心愿单
                     </a>
-                    <a id="jhsOpenCreatedWishWebBtn" href="#" target="_blank" rel="noopener" class="btn" style="text-decoration:none;height:34px;">
+                    <a id="jhsOpenCreatedWishWebBtn" href="#" target="_blank" rel="noopener" class="btn" style="text-decoration:none;height:36px;">
                       🌐 打开心愿单分享网页
                     </a>
-                    <button type="button" id="jhsCopyCreatedWishUrlBtn" class="btn" style="height:34px;">
+                    <button type="button" id="jhsCopyCreatedWishUrlBtn" class="btn" style="height:36px;">
                       🔗 复制心愿单分享链接
                     </button>
                   </div>
@@ -2701,11 +2876,22 @@ img.battlefield-rot-img {
             </div>
           </div>
 
-          <!-- 购物车集换社实时价格与版本映射表 -->
-          <div style="font-size:12.5px;color:var(--text-secondary);margin:12px 0 6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
-            <span>💰 <strong>购物车卡牌 × 集换社最低价版本匹配明细</strong>（已默认自动选中各编号下价格最低的版本，也可手动切换版本或单张唤起 App）：</span>
+          <!-- 购物车集换社实时价格与版本映射表 + 批量版本工具栏 -->
+          <div style="font-size:12.5px;color:var(--text-secondary);margin:12px 0 8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+            <span>💰 <strong>购物车卡牌 × 集换社版本匹配明细</strong>（可随时切换单卡版本，或点击右侧快捷按钮批量切换）：</span>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button type="button" id="jhsBatchCheapestVerBtn" class="btn" style="height:28px;font-size:11.5px;padding:0 10px;" title="将所有卡牌切换为当前集换社在售价格最低的版本">
+                ⚡ 全选最低价版本
+              </button>
+              <button type="button" id="jhsBatchNormalVerBtn" class="btn" style="height:28px;font-size:11.5px;padding:0 10px;" title="优先选择非异画/非闪的普通平卡版本">
+                🃏 全选平卡/普通版
+              </button>
+              <button type="button" id="jhsQuickExportTextBtn" class="btn" style="height:28px;font-size:11.5px;padding:0 10px;" title="免登录一键复制含集换社卡编与最低价的配单文本表">
+                📋 复制心愿单配卡表
+              </button>
+            </div>
           </div>
-          <div class="rift-list-table-wrap" style="max-height:380px;overflow-y:auto;">
+          <div class="rift-list-table-wrap" style="max-height:360px;overflow-y:auto;">
             <table class="rift-list-table">
               <thead>
                 <tr>
@@ -2726,22 +2912,28 @@ img.battlefield-rot-img {
         <!-- TAB 2: 卖家店铺库存 1v1 配单比对 -->
         <div id="jhsTabPanel_shop" class="jhs-tab-panel" style="display:none;">
           <div class="jhs-sync-card">
-            <div style="font-size:14.5px;font-weight:800;color:#fdba74;margin-bottom:4px;">
-              🏪 集换社卖家店铺库存 1v1 配单比对器（免登录直接可用）
+            <div style="font-size:14.5px;font-weight:800;color:#fdba74;margin-bottom:8px;">
+              🏪 集换社卖家店铺库存 1v1 配单比对器（免登录 · 3 步算出一家店能凑齐多少张）
             </div>
-            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">
-              在集换社 App 进入任意卖家店铺，点击右上角「分享 ➔ 复制链接」（如 <code>https://www.jihuanshe.com/app/sellCards?userId=...</code>）或直接输入卖家的<strong>集换号 (userId)</strong>，即可一键检测该店铺拥有您购物车中的哪些卡牌及店内售价，省去多店运费！
+            <!-- 直观 3 步横向指引条 -->
+            <div class="step-pills-row" style="margin-bottom:10px;">
+              <div class="step-pill-item"><span class="step-num-pill">1</span> 在集换社 App 打开任意卖家店铺主页</div>
+              <div class="step-pill-item"><span class="step-num-pill">2</span> 点击右上角 <strong>「分享 ➔ 复制链接」</strong></div>
+              <div class="step-pill-item"><span class="step-num-pill">3</span> 点击下方 <strong>「📋 粘贴并扫描」</strong> 即可比对</div>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
               <input
                 type="text"
                 id="jhsShopUrlInput"
                 class="search-input"
-                style="flex:1;min-width:220px;height:36px;"
+                style="flex:1;min-width:200px;height:36px;"
                 placeholder="粘贴集换社店铺分享链接 (https://www.jihuanshe.com/app/sellCards?userId=...) 或输入卖家集换号 ID..."
               />
-              <button type="button" id="jhsScanShopBtn" class="btn btn-jhs" style="height:36px;padding:0 18px;">
-                🔍 扫描该店铺库存并比对购物车
+              <button type="button" id="jhsPasteAndScanShopBtn" class="btn btn-gold" style="height:36px;padding:0 14px;" title="直接读取剪贴板中的链接并开始扫描">
+                📋 粘贴并扫描
+              </button>
+              <button type="button" id="jhsScanShopBtn" class="btn btn-jhs" style="height:36px;padding:0 16px;">
+                🔍 开始扫描比对
               </button>
             </div>
           </div>
@@ -2756,22 +2948,28 @@ img.battlefield-rot-img {
         <!-- TAB 3: 导入集换社心愿单分享链接 -->
         <div id="jhsTabPanel_import" class="jhs-tab-panel" style="display:none;">
           <div class="jhs-sync-card">
-            <div style="font-size:14.5px;font-weight:800;color:#fdba74;margin-bottom:4px;">
+            <div style="font-size:14.5px;font-weight:800;color:#fdba74;margin-bottom:8px;">
               🔗 从集换社「心愿单分享链接」一键导入到 H5 购物车（免登录直接可用）
             </div>
-            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">
-              在集换社 App 打开任意《符文战场》心愿单，点击右上角「分享 ➔ 复制链接」（如 <code>https://www.jihuanshe.com/app/wishCards?wishListId=...</code>）或直接输入 <code>wishListId</code>，即可将心愿单内的全部卡牌与数量同步导入到当前网页购物车中！
+            <!-- 直观 3 步横向指引条 -->
+            <div class="step-pills-row" style="margin-bottom:10px;">
+              <div class="step-pill-item"><span class="step-num-pill">1</span> 在集换社 App 打开任意《符文战场》心愿单</div>
+              <div class="step-pill-item"><span class="step-num-pill">2</span> 点击右上角 <strong>「分享 ➔ 复制链接」</strong></div>
+              <div class="step-pill-item"><span class="step-num-pill">3</span> 点击下方 <strong>「📋 粘贴并导入」</strong> 即可载入购物车</div>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
               <input
                 type="text"
                 id="jhsImportWishUrlInput"
                 class="search-input"
-                style="flex:1;min-width:220px;height:36px;"
+                style="flex:1;min-width:200px;height:36px;"
                 placeholder="粘贴集换社心愿单分享链接 (https://www.jihuanshe.com/app/wishCards?wishListId=...) 或输入 wishListId..."
               />
-              <button type="button" id="jhsConfirmImportWishUrlBtn" class="btn btn-gold" style="height:36px;padding:0 18px;">
-                📥 解析心愿单并导入购物车
+              <button type="button" id="jhsPasteAndImportWishBtn" class="btn btn-jhs" style="height:36px;padding:0 14px;" title="直接读取剪贴板中的心愿单链接并导入">
+                📋 粘贴并导入
+              </button>
+              <button type="button" id="jhsConfirmImportWishUrlBtn" class="btn btn-gold" style="height:36px;padding:0 16px;">
+                📥 解析并导入购物车
               </button>
             </div>
             <label style="font-size:12.5px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
@@ -2784,7 +2982,7 @@ img.battlefield-rot-img {
 
       <div class="modal-footer">
         <span style="font-size:12px;color:var(--text-secondary);">
-          💡 提示：手机端可点击「📱 一键在集换社 App 内打开本页」免抓包自动提取 Token 并同步心愿单；也可点击单卡右侧「📱 跳 App」直达对应单卡在售页
+          💡 提示：电脑端选卡可直接用手机扫上方二维码直通集换社建单；手机端直接点「🚀 一键唤起集换社 App」即可全自动创建！
         </span>
         <div class="modal-footer-btns" style="display:flex;gap:8px;">
           <button type="button" class="btn" data-close-modal="jhsHubModal">关闭窗口</button>
@@ -5420,7 +5618,130 @@ window.RIFT_CARDS = [{"id":"ARC-001","baseCardId":null,"name":"蔚，铲除者",
     }
   }
 
-  // 检测并自动从集换社 App 内置 WebView (window.jhsapp.getToken) 提取登录 Token（零抓包方案）
+  // =========================================================================
+  // 多套购卡单本地存档管理 & 一键分享卡单链接
+  // =========================================================================
+  const CART_PRESETS_STORAGE_KEY = 'riftbound_saved_cart_presets_v1';
+
+  function getSavedCartPresets() {
+    try {
+      const raw = localStorage.getItem(CART_PRESETS_STORAGE_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveCartPresetsList(list) {
+    try {
+      localStorage.setItem(CART_PRESETS_STORAGE_KEY, JSON.stringify(list));
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  function renderCartPresetsSelect(selectedId = '') {
+    const sel = document.getElementById('cartSavedListsSelect');
+    const delBtn = document.getElementById('deleteCartPresetBtn');
+    if (!sel) return;
+    const list = getSavedCartPresets();
+    sel.innerHTML = `<option value="">📂 切换已存购卡单 (${list.length})</option>`;
+    list.forEach(p => {
+      const kinds = Array.isArray(p.items) ? p.items.length : 0;
+      const totalQty = Array.isArray(p.items) ? p.items.reduce((s, it) => s + (Number(it[1]) || 0), 0) : 0;
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = `📋 ${p.name} (${kinds}种/${totalQty}张)`;
+      if (p.id === selectedId) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    if (delBtn) {
+      delBtn.style.display = sel.value ? 'inline-flex' : 'none';
+    }
+  }
+
+  function handleSaveCurrentCartPreset() {
+    if (state.cart.size === 0) {
+      showToast('⚠️ 购物车为空，请先选择卡牌后再保存方案');
+      return;
+    }
+    const list = getSavedCartPresets();
+    const sel = document.getElementById('cartSavedListsSelect');
+    const currentPreset = list.find(p => p.id === sel?.value);
+    const defaultName = currentPreset ? currentPreset.name : `符文卡单_${new Date().toLocaleDateString('zh-CN')}`;
+    const nameInput = prompt('💾 请输入要保存的购卡单方案名称（同名将直接更新）：', defaultName);
+    if (!nameInput || !nameInput.trim()) return;
+    const cleanName = nameInput.trim();
+    const items = [];
+    state.cart.forEach((qty, id) => {
+      if (qty > 0) items.push([id, qty]);
+    });
+
+    const existingIdx = list.findIndex(p => p.name === cleanName);
+    let activeId = '';
+    if (existingIdx >= 0) {
+      list[existingIdx].items = items;
+      list[existingIdx].updatedAt = Date.now();
+      activeId = list[existingIdx].id;
+    } else {
+      activeId = `preset_${Date.now()}`;
+      list.unshift({
+        id: activeId,
+        name: cleanName,
+        updatedAt: Date.now(),
+        items
+      });
+    }
+    saveCartPresetsList(list);
+    renderCartPresetsSelect(activeId);
+    showToast(`💾 已保存购卡单方案「${cleanName}」（${items.length} 种卡牌）！`);
+  }
+
+  function handleLoadCartPreset(presetId) {
+    const delBtn = document.getElementById('deleteCartPresetBtn');
+    if (!presetId) {
+      if (delBtn) delBtn.style.display = 'none';
+      return;
+    }
+    const list = getSavedCartPresets();
+    const target = list.find(p => p.id === presetId);
+    if (!target || !Array.isArray(target.items)) return;
+
+    state.cart.clear();
+    target.items.forEach(([id, qty]) => {
+      if (CARD_MAP.has(id) && Number(qty) > 0) {
+        state.cart.set(id, Number(qty));
+      }
+    });
+    saveCartToStorage();
+    updateCartUI();
+    refreshCatalog(false);
+    if (delBtn) delBtn.style.display = 'inline-flex';
+    const wishNameInput = document.getElementById('jhsNewWishListNameInput');
+    if (wishNameInput && target.name) wishNameInput.value = target.name;
+    showToast(`📂 已切换至购卡单「${target.name}」`);
+  }
+
+  function handleDeleteCartPreset() {
+    const sel = document.getElementById('cartSavedListsSelect');
+    const id = sel?.value;
+    if (!id) return;
+    const list = getSavedCartPresets();
+    const target = list.find(p => p.id === id);
+    if (!target) return;
+    if (!confirm(`确定要删除已保存的购卡单存档「${target.name}」吗？`)) return;
+    const next = list.filter(p => p.id !== id);
+    saveCartPresetsList(next);
+    renderCartPresetsSelect('');
+    showToast(`🗑️ 已删除购卡单存档「${target.name}」`);
+  }
+
+  function isMobileEnvironment() {
+    return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '') || window.innerWidth <= 860;
+  }
+
+  // 检测并自动从集换社 App 内置 WebView (window.jhsapp.getToken) 提取登录通行证（零抓包方案）
   function tryAutoExtractJhsAppToken() {
     try {
       let detectedToken = '';
@@ -5438,13 +5759,12 @@ window.RIFT_CARDS = [{"id":"ARC-001","baseCardId":null,"name":"蔚，铲除者",
       if (clean && clean.length > 16) {
         const isNew = jhsState.token !== clean;
         jhsState.token = clean;
+        jhsState.isInJhsApp = true;
         localStorage.setItem(JHS_TOKEN_STORAGE_KEY, clean);
-        const banner = document.getElementById('jhsInAppAutoBanner');
-        if (banner) banner.style.display = 'block';
         updateJhsTokenBadgeUI();
         if (isNew) {
           fetchUserJhsWishlists();
-          showToast('🎉 已从集换社 App 内置环境自动提取登录 Token！');
+          showToast('🎉 已在集换社 App 内自动连接您的账号！');
         }
         return true;
       }
@@ -5454,34 +5774,58 @@ window.RIFT_CARDS = [{"id":"ARC-001","baseCardId":null,"name":"蔚，铲除者",
     return false;
   }
 
-  // 构建带当前购物车参数的 H5 同步链接，方便在集换社 App 内置 WebView 打开时无缝带入所选卡牌
-  function buildSyncUrlWithCart() {
+  // 构建带当前购物车参数的 H5 链接（支持纯分享模式 & 集换社自动建单模式）
+  function buildSyncUrlWithCart(options = {}) {
+    const { openJhs = true, autoCreate = true } = options;
     const baseUrl = window.location.protocol.startsWith('http')
       ? `${window.location.origin}${window.location.pathname}`
       : 'https://asmber.github.io/riftbound-card-shop/';
     const params = new URLSearchParams();
-    params.set('jhs_auto', '1');
+    if (openJhs) params.set('ja', '1');
+    if (openJhs && autoCreate) params.set('ac', '1');
+
+    const wishName = document.getElementById('jhsNewWishListNameInput')?.value.trim();
+    if (openJhs && wishName && wishName !== '符文战场选购单') {
+      params.set('wn', wishName);
+    }
+
     if (state.cart.size > 0) {
       const pairs = [];
       state.cart.forEach((qty, id) => {
         if (qty > 0) pairs.push(`${id}:${qty}`);
       });
       if (pairs.length > 0) {
-        params.set('cart', pairs.join(','));
+        params.set('c', pairs.join(','));
       }
     }
     return `${baseUrl}?${params.toString()}`;
   }
 
-  // 从 URL 查询参数 (?cart=OGN-001:3,ARC-002:2&jhs_auto=1) 自动恢复购物车并唤醒集换社弹窗
+  // 手机端一键唤起集换社 App 内置页并全自动创建心愿单
+  async function launchJhsAppWithAutoCreate() {
+    if (state.cart.size === 0) {
+      showToast('⚠️ 购物车为空，请先选择要加入心愿单的卡牌');
+      return;
+    }
+    const syncUrl = buildSyncUrlWithCart({ openJhs: true, autoCreate: true });
+    await copyTextSafe(syncUrl);
+    const schemeUrl = `jihuanshe://www.jihuanshe.com/app/customWebView?showNav=1&url=${encodeURIComponent(syncUrl)}`;
+    showToast('🚀 正在唤起集换社 App 自动建单（已同步复制链接备用）...');
+    window.location.href = schemeUrl;
+  }
+
+  // 从 URL 查询参数 (?c=OGN-001:3&ja=1&ac=1) 自动恢复购物车并在集换社 App 内自动触发建单
   function restoreCartFromUrlParams() {
     try {
       const params = new URLSearchParams(window.location.search);
-      const cartParam = params.get('cart');
-      const jhsAuto = params.get('jhs_auto');
+      const cartParam = params.get('c') || params.get('cart');
+      const jhsAuto = params.get('ja') || params.get('jhs_auto');
+      const autoCreate = params.get('ac') || params.get('jhs_autocreate');
+      const wishNameParam = params.get('wn') || params.get('wish_name');
       let restoredCount = 0;
 
       if (cartParam) {
+        state.cart.clear();
         const items = cartParam.split(',');
         items.forEach(pair => {
           const [rawId, rawQty] = pair.split(':');
@@ -5497,37 +5841,93 @@ window.RIFT_CARDS = [{"id":"ARC-001","baseCardId":null,"name":"蔚，铲除者",
         }
       }
 
-      if (jhsAuto === '1') {
-        // 清理地址栏参数避免刷新重复触发
+      if (wishNameParam) {
+        const nameInput = document.getElementById('jhsNewWishListNameInput');
+        if (nameInput) nameInput.value = wishNameParam;
+      }
+
+      if (cartParam || jhsAuto) {
         if (window.history && window.history.replaceState) {
           window.history.replaceState({}, document.title, window.location.pathname);
         }
-        setTimeout(() => {
+      }
+
+      if (jhsAuto === '1') {
+        const tryAutoFlow = () => {
           tryAutoExtractJhsAppToken();
+          updateJhsTokenBadgeUI();
+          if (autoCreate === '1' && jhsState.token && !jhsState.hasAutoCreatedInSession && state.cart.size > 0) {
+            jhsState.hasAutoCreatedInSession = true;
+            createJhsWishlistFromCart();
+          }
+        };
+        setTimeout(() => {
           openJhsHubModal('wishlist');
+          tryAutoFlow();
         }, 180);
+        setTimeout(tryAutoFlow, 650);
+        setTimeout(tryAutoFlow, 1400);
+      } else if (restoredCount > 0) {
+        setTimeout(() => {
+          showToast(`🎉 已从分享链接载入 ${restoredCount} 种卡牌到购物车！`);
+        }, 250);
       }
     } catch (e) {
       // ignore
     }
   }
 
+  // 智能分端状态向导更新（自动根据「已连接 / 手机未连接 / 电脑未连接」切换最简界面并刷新电脑扫码二维码）
   function updateJhsTokenBadgeUI() {
     const btnText = document.getElementById('jhsAuthStatusBtnText');
     const toggleBtn = document.getElementById('jhsToggleAuthBoxBtn');
     const input = document.getElementById('jhsTokenInput');
+    const connectedBanner = document.getElementById('jhsInAppAutoBanner');
+    const connectedTitle = document.getElementById('jhsConnectedBannerTitle');
+    const mobileWizard = document.getElementById('jhsMobileWizardBox');
+    const pcWizard = document.getElementById('jhsPcWizardBox');
+    const pcQrImg = document.getElementById('jhsPcSyncQrImg');
+
     if (input && jhsState.token && !input.value) {
       input.value = jhsState.token;
     }
+
+    const hasToken = Boolean(jhsState.token);
+    const isMobile = isMobileEnvironment();
+
+    if (connectedBanner) {
+      connectedBanner.style.display = hasToken ? 'block' : 'none';
+    }
+    if (connectedTitle && hasToken) {
+      connectedTitle.textContent = jhsState.isInJhsApp
+        ? '🎉 已在集换社 App 内自动连接您的账号！点击下方「☁️ 一键在集换社创建心愿单」即可秒建单'
+        : '✅ 已绑定集换社登录通行证！直接点击下方「☁️ 一键在集换社创建心愿单」即可写入全部卡牌';
+    }
+
+    if (mobileWizard) {
+      mobileWizard.style.display = !hasToken && isMobile ? 'block' : 'none';
+    }
+    if (pcWizard) {
+      pcWizard.style.display = !hasToken && !isMobile ? 'block' : 'none';
+      if (!hasToken && !isMobile && pcQrImg) {
+        const syncUrl = buildSyncUrlWithCart({ openJhs: true, autoCreate: true });
+        const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=6&data=${encodeURIComponent(syncUrl)}`;
+        if (pcQrImg.dataset.lastUrl !== syncUrl) {
+          pcQrImg.dataset.lastUrl = syncUrl;
+          pcQrImg.src = qrApiUrl;
+        }
+      }
+    }
+
     if (btnText) {
-      if (jhsState.token) {
-        btnText.textContent = '✅ 已配置 Token (点击管理/复制)';
+      if (hasToken) {
+        btnText.textContent = '✅ 已连接集换社账号';
         if (toggleBtn) {
           toggleBtn.style.borderColor = 'rgba(34, 197, 94, 0.55)';
           toggleBtn.style.color = '#86efac';
         }
       } else {
-        btnText.textContent = '免抓包获取 / 配置 Token';
+        btnText.textContent = '手动粘贴通行证';
         if (toggleBtn) {
           toggleBtn.style.borderColor = '';
           toggleBtn.style.color = '';
@@ -5699,7 +6099,10 @@ window.RIFT_CARDS = [{"id":"ARC-001","baseCardId":null,"name":"蔚，铲除者",
 
     tryAutoExtractJhsAppToken();
 
-    const tokenInputVal = document.getElementById('jhsTokenInput')?.value.trim();
+    const tokenInputVal =
+      document.getElementById('jhsTokenInput')?.value.trim() ||
+      document.getElementById('jhsPcQuickTokenInput')?.value.trim() ||
+      '';
     if (tokenInputVal) {
       jhsState.token = tokenInputVal.replace(/^Bearer\s+/i, '').trim();
       localStorage.setItem(JHS_TOKEN_STORAGE_KEY, jhsState.token);
@@ -5707,12 +6110,22 @@ window.RIFT_CARDS = [{"id":"ARC-001","baseCardId":null,"name":"蔚，铲除者",
     }
 
     if (!jhsState.token) {
-      const authBox = document.getElementById('jhsAuthConfigBox');
-      if (authBox) {
-        authBox.style.display = 'block';
-        authBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      if (isMobileEnvironment()) {
+        const mobileWizard = document.getElementById('jhsMobileWizardBox');
+        if (mobileWizard) {
+          mobileWizard.style.display = 'block';
+          mobileWizard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        await launchJhsAppWithAutoCreate();
+        return;
       }
-      showToast('🔑 请点击上方「📱 一键在集换社 App 内打开本页」免抓包自动读取 Token，或粘贴已复制的 Token');
+      const pcWizard = document.getElementById('jhsPcWizardBox');
+      if (pcWizard) {
+        pcWizard.style.display = 'block';
+        pcWizard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+      document.getElementById('jhsPcQuickTokenInput')?.focus();
+      showToast('📱 请直接用手机扫下方二维码秒建心愿单，或在右侧粘贴通行证后一键建单');
       return;
     }
 
@@ -6646,8 +7059,33 @@ window.RIFT_CARDS = [{"id":"ARC-001","baseCardId":null,"name":"蔚，铲除者",
       }
     });
 
-    document.getElementById('syntaxHelpBtn').addEventListener('click', () => {
+    // 教程与搜索语法弹窗
+    const openTutorialModal = () => {
       document.getElementById('syntaxModal').classList.add('open');
+    };
+    document.getElementById('syntaxHelpBtn')?.addEventListener('click', openTutorialModal);
+    document.getElementById('openGuideHeaderBtn')?.addEventListener('click', openTutorialModal);
+    document.getElementById('jhsOpenTutorialBtn')?.addEventListener('click', openTutorialModal);
+
+    // 购物车多套方案存档与一键分享卡单
+    renderCartPresetsSelect();
+    document.getElementById('saveCartPresetBtn')?.addEventListener('click', handleSaveCurrentCartPreset);
+    document.getElementById('cartSavedListsSelect')?.addEventListener('change', e => {
+      handleLoadCartPreset(e.target.value);
+    });
+    document.getElementById('deleteCartPresetBtn')?.addEventListener('click', handleDeleteCartPreset);
+    document.getElementById('shareCartUrlBtn')?.addEventListener('click', async () => {
+      if (state.cart.size === 0) {
+        showToast('⚠️ 购物车为空，请先选择卡牌后再分享');
+        return;
+      }
+      const shareUrl = buildSyncUrlWithCart({ openJhs: false, autoCreate: false });
+      const ok = await copyTextSafe(shareUrl);
+      if (ok) {
+        showToast('🔗 已复制当前购卡单专属分享链接！发给好友点开即可直接载入整套卡表');
+      } else {
+        showToast('⚠️ 复制失败，请重试');
+      }
     });
 
     // 主题切换
@@ -6701,76 +7139,119 @@ window.RIFT_CARDS = [{"id":"ARC-001","baseCardId":null,"name":"蔚，铲除者",
       }
     });
 
-    // 账号 Token 配置折叠与保存
-    document.getElementById('jhsToggleAuthBoxBtn')?.addEventListener('click', () => {
+    // 批量切换版本：全选最低价版本 / 全选平卡普通版
+    document.getElementById('jhsBatchCheapestVerBtn')?.addEventListener('click', () => {
+      const entries = getCartEntriesSorted();
+      if (entries.length === 0) return;
+      entries.forEach(({ card }) => {
+        const versions = jhsVersionsCache.get(card.id) || [];
+        const cheapest = selectCheapestJhsVersion(versions, card);
+        if (cheapest) jhsSelectedVersionMap.set(card.id, Number(cheapest.id));
+      });
+      renderJhsCartTable();
+      showToast('⚡ 已将所有卡牌切换为集换社当前最低在售价版本！');
+    });
+
+    document.getElementById('jhsBatchNormalVerBtn')?.addEventListener('click', () => {
+      const entries = getCartEntriesSorted();
+      if (entries.length === 0) return;
+      entries.forEach(({ card }) => {
+        const versions = jhsVersionsCache.get(card.id) || [];
+        if (versions.length === 0) return;
+        const normalPool = versions.filter(v => {
+          const r = String(v.rarity || '');
+          const num = String(v.number || '');
+          return !/异画|闪|金|签|Showcase|Foil/i.test(r) && !/[a-zA-Z]\s*$/.test(num);
+        });
+        const chosen = selectCheapestJhsVersion(normalPool.length > 0 ? normalPool : versions, card);
+        if (chosen) jhsSelectedVersionMap.set(card.id, Number(chosen.id));
+      });
+      renderJhsCartTable();
+      showToast('🃏 已将所有卡牌优先切换为普通平卡版本！');
+    });
+
+    // 当修改新心愿单名称时，实时更新电脑端扫码同步二维码
+    document.getElementById('jhsNewWishListNameInput')?.addEventListener('input', () => {
+      updateJhsTokenBadgeUI();
+    });
+
+    // 账号通行证配置折叠与保存
+    const toggleAuthBox = () => {
       const box = document.getElementById('jhsAuthConfigBox');
       if (box) {
         box.style.display = box.style.display === 'none' ? 'block' : 'none';
       }
-    });
+    };
+    document.getElementById('jhsToggleAuthBoxBtn')?.addEventListener('click', toggleAuthBox);
+    document.getElementById('jhsOpenAuthManageBtn')?.addEventListener('click', toggleAuthBox);
 
-    // 免抓包：一键在集换社 App 内置 WebView 打开本页（自动带入购物车并触发 window.jhsapp.getToken()）
-    document.getElementById('jhsLaunchAppWebviewBtn')?.addEventListener('click', async () => {
-      const syncUrl = buildSyncUrlWithCart();
-      await copyTextSafe(syncUrl);
-      const schemeUrl = `jihuanshe://www.jihuanshe.com/app/customWebView?showNav=1&url=${encodeURIComponent(syncUrl)}`;
-      showToast('🚀 正在唤起集换社 App 内置页（已同步复制链接备用）...');
-      window.location.href = schemeUrl;
-    });
+    // 手机端一键唤起集换社 App 内置页并全自动创建心愿单
+    document.getElementById('jhsLaunchAppWebviewBtn')?.addEventListener('click', launchJhsAppWithAutoCreate);
 
-    // 免抓包：复制带购物车的同步链接（可发送到集换社私信/评论内点击打开）
-    document.getElementById('jhsCopySyncPageUrlBtn')?.addEventListener('click', async () => {
-      const syncUrl = buildSyncUrlWithCart();
+    // 复制带购物车的同步链接（可发送到集换社私信/评论内点击打开）
+    const handleCopyAutoSyncUrl = async () => {
+      const syncUrl = buildSyncUrlWithCart({ openJhs: true, autoCreate: true });
       const ok = await copyTextSafe(syncUrl);
       if (ok) {
-        showToast('🔗 已复制带购物车的专属链接！发到集换社 App 私信/评论中点击打开即可自动提取 Token');
+        showToast('🔗 已复制本单专属链接！打开集换社 App 发到任意私信/评论中点开，即可全自动创建心愿单');
       } else {
         showToast('⚠️ 复制失败，请手动复制浏览器地址栏链接');
       }
-    });
+    };
+    document.getElementById('jhsCopySyncPageUrlBtn')?.addEventListener('click', handleCopyAutoSyncUrl);
+    document.getElementById('jhsMobileCopySyncUrlBtn')?.addEventListener('click', handleCopyAutoSyncUrl);
 
-    // 一键复制当前提取到的或已保存的集换社 Token（供发给电脑端使用）
+    // 一键复制当前提取到的或已保存的集换社通行证（供发给电脑端使用）
     const handleCopyCurrentToken = async () => {
       tryAutoExtractJhsAppToken();
       const tok = jhsState.token || document.getElementById('jhsTokenInput')?.value.trim() || '';
       const clean = tok.replace(/^Bearer\s+/i, '').trim();
       if (!clean) {
-        showToast('⚠️ 当前尚未获取到集换社 Token，请先在集换社 App 内打开本页或粘贴 Token');
+        showToast('⚠️ 当前尚未获取到通行证，请先在集换社 App 内打开本页');
         return;
       }
       const ok = await copyTextSafe(clean);
       if (ok) {
-        showToast('📋 已复制您的集换社 Bearer Token！可直接发到电脑端粘贴使用');
+        showToast('📋 已复制您的集换社登录通行证！可直接发到电脑端粘贴绑定');
       } else {
-        showToast('⚠️ 复制失败，请展开输入框手动全选复制');
+        showToast('⚠️ 复制失败，请展开管理框手动复制');
       }
     };
     document.getElementById('jhsCopyInAppTokenBtn')?.addEventListener('click', handleCopyCurrentToken);
     document.getElementById('jhsCopySavedTokenBtn')?.addEventListener('click', handleCopyCurrentToken);
 
-    document.getElementById('jhsSaveTokenBtn')?.addEventListener('click', () => {
-      const val = document.getElementById('jhsTokenInput')?.value.trim() || '';
-      const cleanToken = val.replace(/^Bearer\s+/i, '').trim();
+    const handleSaveTokenValue = rawVal => {
+      const cleanToken = String(rawVal || '').replace(/^Bearer\s+/i, '').trim();
       if (!cleanToken) {
-        showToast('请先粘贴有效的集换社 Bearer Token');
+        showToast('请先粘贴从手机端复制过来的集换社登录通行证');
         return;
       }
       jhsState.token = cleanToken;
       localStorage.setItem(JHS_TOKEN_STORAGE_KEY, cleanToken);
+      const input1 = document.getElementById('jhsTokenInput');
+      const input2 = document.getElementById('jhsPcQuickTokenInput');
+      if (input1) input1.value = cleanToken;
+      if (input2) input2.value = '';
       updateJhsTokenBadgeUI();
       fetchUserJhsWishlists();
-      showToast('✅ 集换社 Token 已保存，现在可一键创建云端心愿单！');
+      showToast('✅ 集换社登录通行证已绑定！现在直接点「☁️ 一键在集换社创建心愿单」即可秒建单');
+    };
+
+    document.getElementById('jhsSaveTokenBtn')?.addEventListener('click', () => {
+      handleSaveTokenValue(document.getElementById('jhsTokenInput')?.value);
+    });
+    document.getElementById('jhsPcQuickSaveTokenBtn')?.addEventListener('click', () => {
+      handleSaveTokenValue(document.getElementById('jhsPcQuickTokenInput')?.value);
     });
 
     document.getElementById('jhsClearTokenBtn')?.addEventListener('click', () => {
       jhsState.token = '';
+      jhsState.isInJhsApp = false;
       localStorage.removeItem(JHS_TOKEN_STORAGE_KEY);
       const input = document.getElementById('jhsTokenInput');
       if (input) input.value = '';
-      const banner = document.getElementById('jhsInAppAutoBanner');
-      if (banner) banner.style.display = 'none';
       updateJhsTokenBadgeUI();
-      showToast('🗑️ 已清除保存的集换社 Token');
+      showToast('🗑️ 已清除保存的集换社通行证');
     });
 
     // 一键创建并同步心愿单按钮
@@ -6792,9 +7273,50 @@ window.RIFT_CARDS = [{"id":"ARC-001","baseCardId":null,"name":"蔚，铲除者",
       showToast('📋 已复制集换社心愿单配卡与底价清单到剪贴板！');
     });
 
-    // 卖家店铺 1v1 齐卡扫描与心愿单链接导入
+    // 卖家店铺 1v1 齐卡扫描与心愿单链接导入（支持一键读取剪贴板并执行）
     document.getElementById('jhsScanShopBtn')?.addEventListener('click', scanJhsSellerStore);
+    document.getElementById('jhsPasteAndScanShopBtn')?.addEventListener('click', async () => {
+      try {
+        if (navigator.clipboard && navigator.clipboard.readText) {
+          const clipText = (await navigator.clipboard.readText()) || '';
+          if (clipText.trim()) {
+            const input = document.getElementById('jhsShopUrlInput');
+            if (input) input.value = clipText.trim();
+          }
+        }
+      } catch (e) {
+        // 浏览器询问或限制读取剪贴板时回退到输入框内已有值
+      }
+      const input = document.getElementById('jhsShopUrlInput');
+      if (!input?.value.trim()) {
+        input?.focus();
+        showToast('📋 请在输入框内长按或按 Ctrl+V 粘贴店铺链接');
+        return;
+      }
+      scanJhsSellerStore();
+    });
+
     document.getElementById('jhsConfirmImportWishUrlBtn')?.addEventListener('click', () => importFromJhsWishUrl());
+    document.getElementById('jhsPasteAndImportWishBtn')?.addEventListener('click', async () => {
+      try {
+        if (navigator.clipboard && navigator.clipboard.readText) {
+          const clipText = (await navigator.clipboard.readText()) || '';
+          if (clipText.trim()) {
+            const input = document.getElementById('jhsImportWishUrlInput');
+            if (input) input.value = clipText.trim();
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+      const input = document.getElementById('jhsImportWishUrlInput');
+      if (!input?.value.trim()) {
+        input?.focus();
+        showToast('📋 请在输入框内长按或按 Ctrl+V 粘贴集换社心愿单分享链接');
+        return;
+      }
+      importFromJhsWishUrl();
+    });
 
     // 初始渲染
     updateCartUI();
