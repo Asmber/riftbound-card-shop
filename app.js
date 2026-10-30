@@ -69,7 +69,7 @@
     printsByName.get(key).push(c);
   }
 
-  // 状态管理
+  // 状态管理（默认开启 includeAltArt，严格按卡牌编号区分不同卡牌与多版本符文）
   const state = {
     query: '',
     domains: new Set(),
@@ -77,7 +77,7 @@
     set: '',
     cost: '',
     rarity: '',
-    includeAltArt: false,
+    includeAltArt: true,
     includeTokens: false,
     onlyInCart: false,
     sortBy: 'id',
@@ -327,25 +327,10 @@
       return true;
     });
 
-    // 如果未勾选“包含异画版本”且未开启“仅看已加购”，按同名卡聚合去重（但如果某个异画已在购物车中，也保留或优先展示）
-    if (!state.includeAltArt && !state.onlyInCart) {
-      const dedupMap = new Map();
-      for (const card of list) {
-        const key = `${card.enName.toLowerCase()}__${card.type.toLowerCase()}`;
-        const existing = dedupMap.get(key);
-        if (!existing) {
-          dedupMap.set(key, card);
-        } else {
-          const cardInCart = (state.cart.get(card.id) || 0) > 0;
-          const existingInCart = (state.cart.get(existing.id) || 0) > 0;
-          if (cardInCart && !existingInCart) {
-            dedupMap.set(key, card);
-          } else if (cardInCart === existingInCart && isBetterCanonicalCard(card, existing)) {
-            dedupMap.set(key, card);
-          }
-        }
-      }
-      list = Array.from(dedupMap.values());
+    // 严格按卡牌编号 (card.id) 区分每一张卡牌，绝不按同名合并去重；
+    // 仅当用户手动关闭「✨ 包含异画版本」且未筛选异画稀有度时，隐藏异画版本（仍保留所有不同编号的基础版本与各系列基础符文）
+    if (!state.includeAltArt && !state.onlyInCart && state.rarity !== 'Showcase') {
+      list = list.filter(card => !card.isAltArt || (state.cart.get(card.id) || 0) > 0);
     }
 
     // 排序
@@ -486,7 +471,7 @@
       if (state.set) activeCount++;
       if (state.cost !== '') activeCount++;
       if (state.rarity) activeCount++;
-      if (state.includeAltArt) activeCount++;
+      if (!state.includeAltArt) activeCount++;
       if (state.includeTokens) activeCount++;
       if (state.onlyInCart) activeCount++;
       mobileFilterBadge.textContent = activeCount;
@@ -514,7 +499,10 @@
           const qty = state.cart.get(card.id) || 0;
           const costStr = card.energyCost !== null ? `${card.energyCost}费` : '';
           const mightStr = card.might !== null ? `${card.might}战` : '';
-          const metaRight = [costStr, mightStr].filter(Boolean).join(' · ') || formatType(card.type);
+          const baseMeta = card.type === 'Rune'
+            ? `${formatSet(card.set).split(' ')[0]} · ${formatRarity(card.rarity)}`
+            : ([costStr, mightStr].filter(Boolean).join(' · ') || formatType(card.type));
+          const metaRight = card.type !== 'Rune' && card.isAltArt ? `${baseMeta} · 异画` : baseMeta;
           return `
             <article class="card-tile ${qty > 0 ? 'in-cart' : ''}" data-card-id="${card.id}">
               <div class="card-art-box" data-card-click="${card.id}" data-hover-card="${card.id}">
@@ -652,7 +640,9 @@
             ${card.name}
           </div>
           <div class="cart-item-sub">
-            <span style="font-family:monospace;">${card.id}</span>
+            <span style="font-family:monospace;color:var(--gold-light);font-weight:700;">${card.id}</span>
+            <span>·</span>
+            <span>${formatRarity(card.rarity)}</span>
             <span>·</span>
             <span>${formatType(card.type)}</span>
             ${card.energyCost !== null ? `<span>· ${card.energyCost}费</span>` : ''}
@@ -1829,28 +1819,40 @@
     return cells;
   }
 
+  // 将集换社卡牌编号 (如 OGN·039a/298、OGN·299*/298、VEN·SP1/006·SC、UNL·R01b·P、VEN·R01b·P·SC) 精准映射为本地唯一编号 card.id
+  function jhsNumberToLocalCardId(rawStr) {
+    if (!rawStr) return '';
+    const str = String(rawStr).trim();
+    const directMatch = str.match(/\b([A-Z]{3}-[A-Z0-9]+)\b/i);
+    if (directMatch && cardById.has(directMatch[1].toUpperCase())) {
+      return directMatch[1].toUpperCase();
+    }
+    const jhsMatch = str.match(/\b([A-Z]{3})\s*[·\-]\s*([A-Z0-9]+)(\*)?/i);
+    if (jhsMatch) {
+      const setCode = jhsMatch[1].toUpperCase();
+      const numPart = jhsMatch[2].toUpperCase();
+      const starSuffix = jhsMatch[3] ? 'S' : '';
+      const candidate = `${setCode}-${numPart}${starSuffix}`;
+      if (cardById.has(candidate)) return candidate;
+      if (cardById.has(`${candidate}P`)) return `${candidate}P`;
+      const baseCandidate = `${setCode}-${numPart.replace(/[A-Z]+$/i, '')}`;
+      if (cardById.has(baseCandidate)) return baseCandidate;
+    }
+    return '';
+  }
+
   function findCardByNameOrId(idStr, nameStr) {
     if (idStr) {
-      const idMatch = String(idStr).match(/\b([A-Z]{3}-[A-Z0-9]+)\b/i);
-      if (idMatch && cardById.has(idMatch[1].toUpperCase())) {
-        return cardById.get(idMatch[1].toUpperCase());
-      }
-      const jhsMatch = String(idStr).match(/\b([A-Z]{3})\s*[·\-]\s*(\d{3})\b/i);
-      if (jhsMatch) {
-        const stdCode = `${jhsMatch[1].toUpperCase()}-${jhsMatch[2]}`;
-        if (cardById.has(stdCode)) return cardById.get(stdCode);
+      const mappedId = jhsNumberToLocalCardId(idStr);
+      if (mappedId && cardById.has(mappedId)) {
+        return cardById.get(mappedId);
       }
     }
     if (nameStr) {
       const rawName = String(nameStr).trim();
-      const idInName = rawName.match(/\b([A-Z]{3}-[A-Z0-9]+)\b/i);
-      if (idInName && cardById.has(idInName[1].toUpperCase())) {
-        return cardById.get(idInName[1].toUpperCase());
-      }
-      const jhsInName = rawName.match(/\b([A-Z]{3})\s*[·\-]\s*(\d{3})\b/i);
-      if (jhsInName) {
-        const stdCode = `${jhsInName[1].toUpperCase()}-${jhsInName[2]}`;
-        if (cardById.has(stdCode)) return cardById.get(stdCode);
+      const mappedInName = jhsNumberToLocalCardId(rawName);
+      if (mappedInName && cardById.has(mappedInName)) {
+        return cardById.get(mappedInName);
       }
       const cleaned = rawName
         .replace(/\([A-Z]{3}-[A-Z0-9]+\)/gi, '')
@@ -2084,10 +2086,19 @@
     }
   }
 
-  // 集换社版本优选策略：默认自动选取该编号下所有在售版本（含平卡/闪卡/异画/体验卡）中最低正数价格的版本
+  // 集换社版本优选策略：优先严格匹配当前卡牌编号 (card.id，区分平卡/异画A/异画B/超编/签名/SP及不同系列同色符文)，再从中选最低正数价格版本
   function selectCheapestJhsVersion(versions, card) {
     if (!Array.isArray(versions) || versions.length === 0) return null;
-    const withPositivePrice = versions
+
+    let pool = versions;
+    if (card && card.id) {
+      const exactMatches = versions.filter(v => jhsNumberToLocalCardId(v.number) === card.id);
+      if (exactMatches.length > 0) {
+        pool = exactMatches;
+      }
+    }
+
+    const withPositivePrice = pool
       .map(v => ({ v, price: parseFloat(v.min_price) }))
       .filter(item => Number.isFinite(item.price) && item.price > 0);
 
@@ -2095,7 +2106,7 @@
       withPositivePrice.sort((a, b) => a.price - b.price);
       return withPositivePrice[0].v;
     }
-    return versions[0];
+    return pool[0];
   }
 
   function getSelectedJhsVersion(card) {
@@ -2115,12 +2126,12 @@
     return cheapest;
   }
 
-  // 规范化本地卡牌编号用于集换社检索（例如 OGN-001a -> OGN-001）
+  // 规范化本地卡牌编号用于集换社检索（例如 OGN-001a -> OGN-001, SFD-R01A -> SFD-R01, VEN-SP1 -> VEN-SP1）
   function normalizeCardCodeForJhs(cardId) {
-    return String(cardId || '')
-      .trim()
-      .replace(/^([A-Z]{3}-\d+)[a-zA-Z]*$/i, '$1')
-      .toUpperCase();
+    const raw = String(cardId || '').trim().toUpperCase();
+    // 对 SP 编号保留完整前缀 (如 VEN-SP1, RAD-SP4)
+    if (/^[A-Z]{3}-SP\d+$/i.test(raw)) return raw;
+    return raw.replace(/^([A-Z]{3}-[A-Z]?\d+)[A-Z]*$/i, '$1');
   }
 
   async function fetchJhsVersionsForCard(card, forceRefresh = false) {
@@ -2131,6 +2142,8 @@
 
     const baseCode = normalizeCardCodeForJhs(card.id);
     const dotPrefix = baseCode.replace('-', '·');
+    // 集换社对含字母编号（如 VEN·SP1、SFD·R01）要求使用中圆点「·」检索
+    const primaryKeyword = /[A-Z]{3}-[A-Z]/i.test(baseCode) ? dotPrefix : baseCode;
 
     const queryKeyword = async kw => {
       const url = `${JHS_API_BASE}/search/match-product?keyword=${encodeURIComponent(kw)}&game_key=lol&game_sub_key=default&type=card_version&page=1`;
@@ -2141,13 +2154,14 @@
     };
 
     try {
-      let list = await queryKeyword(baseCode);
+      let list = await queryKeyword(primaryKeyword);
 
       // 优先筛选编号前缀或中文卡名吻合的版本
       let filtered = list.filter(item => {
         const numStr = String(item.number || '').toUpperCase();
         const nameCn = String(item.name_cn || '').trim();
         return (
+          jhsNumberToLocalCardId(item.number) === card.id ||
           numStr.startsWith(dotPrefix) ||
           numStr.startsWith(baseCode) ||
           nameCn === card.name ||
@@ -2156,15 +2170,33 @@
         );
       });
 
-      // 若按编号未搜到（如特殊礼盒/秘宝编号），回退按中文卡名搜索
-      if (filtered.length === 0 && card.name) {
+      // 若按编号未搜到与当前 card.id 完全对应的版本，补充按中文卡名检索并合并去重
+      const hasExactIdMatch = filtered.some(item => jhsNumberToLocalCardId(item.number) === card.id);
+      if ((!hasExactIdMatch || filtered.length === 0) && card.name) {
         const byNameList = await queryKeyword(card.name);
-        filtered = byNameList.filter(item => {
+        const nameMatched = byNameList.filter(item => {
           const nameCn = String(item.name_cn || '').trim();
-          return nameCn === card.name || nameCn.includes(card.name) || card.name.includes(nameCn);
+          return (
+            jhsNumberToLocalCardId(item.number) === card.id ||
+            nameCn === card.name ||
+            nameCn.includes(card.name) ||
+            card.name.includes(nameCn)
+          );
         });
-        if (filtered.length === 0) filtered = byNameList;
+        const mergedMap = new Map();
+        [...filtered, ...(nameMatched.length > 0 ? nameMatched : byNameList)].forEach(item => {
+          if (item && item.id) mergedMap.set(Number(item.id), item);
+        });
+        filtered = Array.from(mergedMap.values());
       }
+
+      // 将与当前 card.id 编号完全一致的集换社版本排在最前面
+      filtered.sort((a, b) => {
+        const aExact = jhsNumberToLocalCardId(a.number) === card.id ? 0 : 1;
+        const bExact = jhsNumberToLocalCardId(b.number) === card.id ? 0 : 1;
+        if (aExact !== bExact) return aExact - bExact;
+        return (parseFloat(a.min_price) || 99999) - (parseFloat(b.min_price) || 99999);
+      });
 
       if (filtered.length > 0) {
         jhsVersionsCache.set(card.id, filtered);
@@ -2344,8 +2376,9 @@
 
     state.cart.clear();
     target.items.forEach(([id, qty]) => {
-      if (CARD_MAP.has(id) && Number(qty) > 0) {
-        state.cart.set(id, Number(qty));
+      const cleanId = String(id || '').trim().toUpperCase();
+      if (cardById.has(cleanId) && Number(qty) > 0) {
+        state.cart.set(cleanId, Number(qty));
       }
     });
     saveCartToStorage();
@@ -2465,7 +2498,7 @@
           const [rawId, rawQty] = pair.split(':');
           const id = (rawId || '').trim().toUpperCase();
           const qty = parseInt(rawQty || '1', 10);
-          if (CARD_MAP.has(id) && Number.isFinite(qty) && qty > 0) {
+          if (cardById.has(id) && Number.isFinite(qty) && qty > 0) {
             state.cart.set(id, Math.min(99, qty));
             restoredCount++;
           }
@@ -3237,7 +3270,7 @@
       state.set = '';
       state.cost = '';
       state.rarity = '';
-      state.includeAltArt = false;
+      state.includeAltArt = true;
       state.includeTokens = false;
       state.onlyInCart = false;
 
@@ -3249,7 +3282,8 @@
         el.value = '';
         el.classList.remove('active-filter');
       });
-      ['toggleAltArtBtn', 'toggleTokensBtn', 'toggleOnlyCartBtn'].forEach(id => {
+      document.getElementById('toggleAltArtBtn').classList.add('active');
+      ['toggleTokensBtn', 'toggleOnlyCartBtn'].forEach(id => {
         document.getElementById(id).classList.remove('active');
       });
       refreshCatalog(true);
@@ -3549,7 +3583,7 @@
     });
 
     document.getElementById('presetStandardColsBtn').addEventListener('click', () => {
-      const std = new Set(['domain', 'rarity', 'type']);
+      const std = new Set(['id', 'domain', 'rarity', 'type']);
       document.querySelectorAll('.export-col-check').forEach(chk => {
         chk.checked = std.has(chk.value);
       });

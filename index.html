@@ -15,7 +15,7 @@
       <div class="brand-title">
         <h1>
           《符文战场》卡牌选购中心
-          <span class="brand-badge">1,530 张完整中文库</span>
+          <span class="brand-badge">1,536 张全编号完整库</span>
         </h1>
         <span class="brand-subtitle">基于 RiftAtlas 卡牌浏览器 · 自由选卡加购 · 预览看板与截图/文本表格导出</span>
       </div>
@@ -140,7 +140,7 @@
       </select>
 
       <!-- 开关胶囊 -->
-      <button type="button" id="toggleAltArtBtn" class="toggle-pill" title="是否在结果中包含同名异画与超编版本">
+      <button type="button" id="toggleAltArtBtn" class="toggle-pill active" title="是否在结果中包含异画与超编版本（默认开启，按编号独立展示每一张卡）">
         ✨ 包含异画版本
       </button>
       <button type="button" id="toggleTokensBtn" class="toggle-pill" title="是否在结果中包含衍生指示物卡牌">
@@ -545,8 +545,8 @@
           <label class="toggle-pill export-col-pill active" style="height:28px;">
             <input type="checkbox" class="export-col-check" value="type" checked /> 卡牌类型
           </label>
-          <label class="toggle-pill export-col-pill" style="height:28px;">
-            <input type="checkbox" class="export-col-check" value="id" /> 卡牌编号
+          <label class="toggle-pill export-col-pill active" style="height:28px;">
+            <input type="checkbox" class="export-col-check" value="id" checked /> 卡牌编号
           </label>
           <label class="toggle-pill export-col-pill" style="height:28px;">
             <input type="checkbox" class="export-col-check" value="cost" /> 法力费用
