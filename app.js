@@ -513,9 +513,8 @@
                   crossorigin="anonymous"
                   src="${card.imgSmall}"
                   data-fallback="${card.imgFallbackSmall}"
-                  alt="${card.name} (${card.id})"
+                  alt="${escapeHtml(card.name)} (${card.id})"
                   loading="lazy"
-                  onerror="if(this.dataset.fallback && this.src!==this.dataset.fallback){this.src=this.dataset.fallback;}"
                 />
                 <button type="button" class="card-info-btn" data-action="detail" data-id="${card.id}" title="查看卡牌详情与高清原图">ℹ</button>
               </div>
@@ -546,9 +545,8 @@
                   crossorigin="anonymous"
                   src="${card.imgSmall}"
                   data-fallback="${card.imgFallbackSmall}"
-                  alt="${card.name}"
+                  alt="${escapeHtml(card.name)}"
                   loading="lazy"
-                  onerror="if(this.dataset.fallback && this.src!==this.dataset.fallback){this.src=this.dataset.fallback;}"
                 />
               </div>
             </td>
@@ -631,8 +629,7 @@
             crossorigin="anonymous"
             src="${card.imgSmall}"
             data-fallback="${card.imgFallbackSmall}"
-            alt="${card.name}"
-            onerror="if(this.dataset.fallback && this.src!==this.dataset.fallback){this.src=this.dataset.fallback;}"
+            alt="${escapeHtml(card.name)}"
           />
         </div>
         <div class="cart-item-info">
@@ -770,9 +767,8 @@
             crossorigin="anonymous"
             src="${card.imgOriginal}"
             data-fallback="${card.imgFallbackOriginal}"
-            alt="${card.name}"
+            alt="${escapeHtml(card.name)}"
             style="width:100%;display:block;"
-            onerror="if(this.dataset.fallback && this.src!==this.dataset.fallback){this.src=this.dataset.fallback;}"
           />
         </div>
         <div style="display:flex;flex-direction:column;gap:12px;">
@@ -836,7 +832,6 @@
                         data-fallback="${p.imgFallbackSmall}"
                         alt="${p.id}"
                         style="width:100%;height:100%;object-fit:cover;display:block;"
-                        onerror="if(this.dataset.fallback && this.src!==this.dataset.fallback){this.src=this.dataset.fallback;}"
                       />
                     </div>
                     <div style="font-size:10.5px;font-family:monospace;margin-top:3px;color:var(--text-secondary);">${p.id}</div>
@@ -1008,7 +1003,6 @@
                       src="${card.imgSmall}"
                       data-fallback="${card.imgFallbackSmall}"
                       alt="${escapeHtml(card.name)}"
-                      onerror="if(this.dataset.fallback && this.src!==this.dataset.fallback){this.src=this.dataset.fallback;}"
                     />
                     <span class="qty-badge">×${qty}</span>
                     ${showJhsPrice && jhsMinP > 0 ? `<span class="jhs-price-tag">¥${jhsMinP.toFixed(2)}</span>` : ''}
@@ -1030,11 +1024,13 @@
   }
 
   function escapeHtml(str) {
-    return String(str)
+    return String(str ?? '')
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/`/g, '&#96;');
   }
 
   // 加载单张图片用于 Canvas 绘制
@@ -1887,7 +1883,11 @@
 
     if (replace) state.cart.clear();
 
-    const lines = raw.replace(/^\uFEFF/, '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const allLines = raw.replace(/^\uFEFF/, '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (allLines.length > 1000) {
+      showToast('🛡️ 导入行数过多，已自动截断至前 1,000 行以保障页面流畅与安全');
+    }
+    const lines = allLines.slice(0, 1000);
     let matchedKinds = 0;
     let matchedTotalQty = 0;
 
@@ -1927,11 +1927,11 @@
         const idVal = headerCols.idIdx !== -1 ? rowCells[headerCols.idIdx] : '';
         const qtyRaw = headerCols.qtyIdx !== -1 ? rowCells[headerCols.qtyIdx] : '1';
         const qtyNum = parseInt(String(qtyRaw).replace(/[^0-9]/g, ''), 10);
-        const qty = Number.isFinite(qtyNum) && qtyNum > 0 ? qtyNum : 1;
+        const qty = Number.isFinite(qtyNum) && qtyNum > 0 ? Math.min(99, qtyNum) : 1;
 
         const card = findCardByNameOrId(idVal, nameVal);
         if (card) {
-          state.cart.set(card.id, (state.cart.get(card.id) || 0) + qty);
+          state.cart.set(card.id, Math.min(999, (state.cart.get(card.id) || 0) + qty));
           matchedKinds++;
           matchedTotalQty += qty;
         }
@@ -1944,10 +1944,11 @@
         if (cells.length >= 2) {
           const c0 = cells[0];
           const c1 = cells[1];
-          const q1 = parseInt(c1.replace(/[^0-9]/g, ''), 10);
+          const q1Raw = parseInt(c1.replace(/[^0-9]/g, ''), 10);
+          const q1 = Number.isFinite(q1Raw) && q1Raw > 0 ? Math.min(99, q1Raw) : 0;
           const card = findCardByNameOrId(c0, c0);
-          if (card && Number.isFinite(q1) && q1 > 0) {
-            state.cart.set(card.id, (state.cart.get(card.id) || 0) + q1);
+          if (card && q1 > 0) {
+            state.cart.set(card.id, Math.min(999, (state.cart.get(card.id) || 0) + q1));
             matchedKinds++;
             matchedTotalQty += q1;
             continue;
@@ -1964,14 +1965,14 @@
       const qtyStartMatch = s.match(/^(\d+)\s*[x×*]?\s+(.+)$/i);
 
       if (qtyEndMatch) {
-        qty = parseInt(qtyEndMatch[1], 10);
+        qty = Math.min(99, Math.max(1, parseInt(qtyEndMatch[1], 10) || 1));
       } else if (qtyStartMatch) {
-        qty = parseInt(qtyStartMatch[1], 10);
+        qty = Math.min(99, Math.max(1, parseInt(qtyStartMatch[1], 10) || 1));
       }
 
       if (idMatch && cardById.has(idMatch[1].toUpperCase())) {
         const cid = idMatch[1].toUpperCase();
-        state.cart.set(cid, (state.cart.get(cid) || 0) + qty);
+        state.cart.set(cid, Math.min(999, (state.cart.get(cid) || 0) + qty));
         matchedKinds++;
         matchedTotalQty += qty;
         continue;
@@ -1985,7 +1986,7 @@
 
       const found = findCardByNameOrId(null, cleanedName);
       if (found) {
-        state.cart.set(found.id, (state.cart.get(found.id) || 0) + qty);
+        state.cart.set(found.id, Math.min(999, (state.cart.get(found.id) || 0) + qty));
         matchedKinds++;
         matchedTotalQty += qty;
       }
@@ -2003,9 +2004,14 @@
     showToast(`✅ 导入成功！共匹配 ${matchedKinds} 条记录（合计 ${matchedTotalQty} 张卡牌）`);
   }
 
-  // 读取拖入或选择的 CSV / TXT 文件（自动兼容 UTF-8 与 Excel GBK 中文编码）
+  // 读取拖入或选择的 CSV / TXT 文件（自动兼容 UTF-8 与 Excel GBK 中文编码，并限制最大 2MB 防止浏览器卡死）
+  const MAX_IMPORT_FILE_BYTES = 2 * 1024 * 1024;
   function processImportedFile(file, forceImmediateImport = false) {
     if (!file) return;
+    if (file.size > MAX_IMPORT_FILE_BYTES) {
+      showToast('🛡️ 文件体积超过 2MB 安全上限，请上传标准 CSV / TXT 卡表文件');
+      return;
+    }
     const reader = new FileReader();
     reader.onload = e => {
       const buffer = e.target.result;
@@ -2041,6 +2047,8 @@
   // =========================================================================
   const JHS_API_BASE = 'https://api.jihuanshe.com/api/market';
   const JHS_TOKEN_STORAGE_KEY = 'riftbound_jhs_token_v1';
+  const JHS_TOKEN_SESSION_KEY = 'riftbound_jhs_token_session_v1';
+  const JHS_TOKEN_REMEMBER_KEY = 'riftbound_jhs_token_remember_v1';
   const JHS_PRICE_CACHE_STORAGE_KEY = 'riftbound_jhs_price_cache_v1';
 
   const jhsVersionsCache = new Map(); // card.id -> Array<JhsCardVersion>
@@ -2050,13 +2058,51 @@
     isFetchingCartPrices: false,
     activeTab: 'wishlist',
     token: '',
+    rememberToken: false,
     userWishlists: []
   };
 
+  function persistJhsToken(cleanToken) {
+    try {
+      const tokenVal = String(cleanToken || '').trim();
+      jhsState.token = tokenVal;
+      if (!tokenVal) {
+        sessionStorage.removeItem(JHS_TOKEN_SESSION_KEY);
+        localStorage.removeItem(JHS_TOKEN_STORAGE_KEY);
+        return;
+      }
+      sessionStorage.setItem(JHS_TOKEN_SESSION_KEY, tokenVal);
+      if (jhsState.rememberToken) {
+        localStorage.setItem(JHS_TOKEN_REMEMBER_KEY, '1');
+        localStorage.setItem(JHS_TOKEN_STORAGE_KEY, tokenVal);
+      } else {
+        localStorage.removeItem(JHS_TOKEN_REMEMBER_KEY);
+        localStorage.removeItem(JHS_TOKEN_STORAGE_KEY);
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
   function loadJhsCacheFromSession() {
     try {
-      const savedToken = localStorage.getItem(JHS_TOKEN_STORAGE_KEY);
-      if (savedToken) jhsState.token = savedToken.trim();
+      const rememberFlag = localStorage.getItem(JHS_TOKEN_REMEMBER_KEY) === '1';
+      jhsState.rememberToken = rememberFlag;
+      const rememberChk = document.getElementById('jhsRememberTokenCheck');
+      if (rememberChk) rememberChk.checked = rememberFlag;
+
+      const sessionTok = sessionStorage.getItem(JHS_TOKEN_SESSION_KEY);
+      const localTok = localStorage.getItem(JHS_TOKEN_STORAGE_KEY);
+      if (sessionTok) {
+        jhsState.token = sessionTok.trim();
+      } else if (localTok) {
+        jhsState.token = localTok.trim();
+        sessionStorage.setItem(JHS_TOKEN_SESSION_KEY, jhsState.token);
+        if (!rememberFlag) {
+          // 自动将旧版长期存储的明文 Token 迁移为更安全的当前会话级存储 (sessionStorage)
+          localStorage.removeItem(JHS_TOKEN_STORAGE_KEY);
+        }
+      }
 
       const rawCache = sessionStorage.getItem(JHS_PRICE_CACHE_STORAGE_KEY);
       if (rawCache) {
@@ -2408,6 +2454,221 @@
     return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '') || window.innerWidth <= 860;
   }
 
+  // 纯前端本地零外联生成 ISO/IEC 18004 标准二维码 SVG Data URL（杜绝向任何第三方二维码 API 发送用户卡单链接）
+  function generateLocalQrSvgDataUrl(text) {
+    try {
+      const dataBytes = Array.from(new TextEncoder().encode(String(text || '')));
+      const V_SPEC = [
+        null,
+        [19, 7, 1, 19, 0, 0], [34, 10, 1, 34, 0, 0], [55, 15, 1, 55, 0, 0], [80, 20, 1, 80, 0, 0],
+        [108, 26, 1, 108, 0, 0], [136, 18, 2, 68, 0, 0], [156, 20, 2, 78, 0, 0], [194, 24, 2, 97, 0, 0],
+        [232, 30, 2, 116, 0, 0], [271, 18, 2, 68, 2, 69], [321, 20, 4, 81, 0, 0], [367, 24, 2, 92, 2, 93],
+        [425, 26, 4, 107, 0, 0], [458, 30, 3, 115, 1, 116], [520, 22, 5, 87, 1, 88], [586, 24, 5, 98, 1, 99],
+        [644, 28, 1, 107, 5, 108], [718, 30, 5, 120, 1, 121], [792, 28, 3, 113, 4, 114], [858, 28, 3, 107, 5, 108]
+      ];
+      const ALIGN_POS = [
+        null, [], [6, 18], [6, 22], [6, 26], [6, 30], [6, 34],
+        [6, 22, 38], [6, 24, 42], [6, 26, 46], [6, 28, 50],
+        [6, 30, 54], [6, 32, 58], [6, 34, 62], [6, 26, 46, 66],
+        [6, 26, 48, 70], [6, 26, 50, 74], [6, 30, 54, 78],
+        [6, 30, 56, 82], [6, 30, 58, 86], [6, 34, 62, 90]
+      ];
+      let ver = 1;
+      while (ver <= 20) {
+        const cap = V_SPEC[ver][0] - (ver <= 9 ? 2 : 3);
+        if (dataBytes.length <= cap) break;
+        ver++;
+      }
+      if (ver > 20) return '';
+
+      const [totalData, ecLen, g1Blocks, g1Len, g2Blocks, g2Len] = V_SPEC[ver];
+      const bits = [];
+      const pushBits = (val, len) => {
+        for (let i = len - 1; i >= 0; i--) bits.push((val >>> i) & 1);
+      };
+      pushBits(0b0100, 4);
+      pushBits(dataBytes.length, ver <= 9 ? 8 : 16);
+      for (const b of dataBytes) pushBits(b, 8);
+      pushBits(0, Math.min(4, totalData * 8 - bits.length));
+      while (bits.length % 8 !== 0) bits.push(0);
+
+      const codewords = [];
+      for (let i = 0; i < bits.length; i += 8) {
+        let byte = 0;
+        for (let j = 0; j < 8; j++) byte = (byte << 1) | bits[i + j];
+        codewords.push(byte);
+      }
+      let padToggle = 0;
+      while (codewords.length < totalData) {
+        codewords.push(padToggle % 2 === 0 ? 0xec : 0x11);
+        padToggle++;
+      }
+
+      const exp = new Uint8Array(512);
+      const log = new Uint8Array(256);
+      let x = 1;
+      for (let i = 0; i < 255; i++) {
+        exp[i] = x;
+        log[x] = i;
+        x <<= 1;
+        if (x & 0x100) x ^= 0x11d;
+      }
+      for (let i = 255; i < 512; i++) exp[i] = exp[i - 255];
+
+      const gfMul = (a, b) => (a === 0 || b === 0 ? 0 : exp[log[a] + log[b]]);
+      let gen = [1];
+      for (let i = 0; i < ecLen; i++) {
+        const next = new Array(gen.length + 1).fill(0);
+        for (let j = 0; j < gen.length; j++) {
+          next[j] ^= gen[j];
+          next[j + 1] ^= gfMul(gen[j], exp[i]);
+        }
+        gen = next;
+      }
+
+      const computeEc = block => {
+        const msg = [...block, ...new Array(ecLen).fill(0)];
+        for (let i = 0; i < block.length; i++) {
+          const coef = msg[i];
+          if (coef !== 0) {
+            for (let j = 0; j < gen.length; j++) msg[i + j] ^= gfMul(gen[j], coef);
+          }
+        }
+        return msg.slice(block.length);
+      };
+
+      const dataBlocks = [];
+      const ecBlocks = [];
+      let offset = 0;
+      for (let i = 0; i < g1Blocks; i++) {
+        const blk = codewords.slice(offset, offset + g1Len);
+        offset += g1Len;
+        dataBlocks.push(blk);
+        ecBlocks.push(computeEc(blk));
+      }
+      for (let i = 0; i < g2Blocks; i++) {
+        const blk = codewords.slice(offset, offset + g2Len);
+        offset += g2Len;
+        dataBlocks.push(blk);
+        ecBlocks.push(computeEc(blk));
+      }
+
+      const finalBytes = [];
+      const maxDataLen = Math.max(g1Len, g2Len);
+      for (let i = 0; i < maxDataLen; i++) {
+        for (const blk of dataBlocks) if (i < blk.length) finalBytes.push(blk[i]);
+      }
+      for (let i = 0; i < ecLen; i++) {
+        for (const blk of ecBlocks) finalBytes.push(blk[i]);
+      }
+
+      const size = ver * 4 + 17;
+      const grid = Array.from({ length: size }, () => new Uint8Array(size));
+      const reserved = Array.from({ length: size }, () => new Uint8Array(size));
+      const setFunc = (r, c, val) => {
+        if (r >= 0 && r < size && c >= 0 && c < size) {
+          grid[r][c] = val ? 1 : 0;
+          reserved[r][c] = 1;
+        }
+      };
+
+      const drawFinder = (r0, c0) => {
+        for (let dr = -1; dr <= 7; dr++) {
+          for (let dc = -1; dc <= 7; dc++) {
+            const isBorder = dr === -1 || dr === 7 || dc === -1 || dc === 7;
+            const isOuter = dr === 0 || dr === 6 || dc === 0 || dc === 6;
+            const isInner = dr >= 2 && dr <= 4 && dc >= 2 && dc <= 4;
+            setFunc(r0 + dr, c0 + dc, !isBorder && (isOuter || isInner));
+          }
+        }
+      };
+      drawFinder(0, 0);
+      drawFinder(0, size - 7);
+      drawFinder(size - 7, 0);
+
+      for (let i = 8; i < size - 8; i++) {
+        setFunc(6, i, i % 2 === 0);
+        setFunc(i, 6, i % 2 === 0);
+      }
+
+      for (const ar of ALIGN_POS[ver]) {
+        for (const ac of ALIGN_POS[ver]) {
+          if ((ar <= 8 && ac <= 8) || (ar <= 8 && ac >= size - 9) || (ar >= size - 9 && ac <= 8)) continue;
+          for (let dr = -2; dr <= 2; dr++) {
+            for (let dc = -2; dc <= 2; dc++) {
+              setFunc(ar + dr, ac + dc, Math.max(Math.abs(dr), Math.abs(dc)) !== 1);
+            }
+          }
+        }
+      }
+
+      for (let i = 0; i < 9; i++) {
+        if (i !== 6) { reserved[8][i] = 1; reserved[i][8] = 1; }
+      }
+      for (let i = 0; i < 8; i++) {
+        reserved[8][size - 1 - i] = 1;
+        reserved[size - 1 - i][8] = 1;
+      }
+      setFunc(size - 8, 8, 1);
+
+      if (ver >= 7) {
+        let rem = ver;
+        for (let i = 0; i < 12; i++) rem = (rem << 1) ^ ((rem >>> 11) * 0x1f25);
+        const vInfo = (ver << 12) | rem;
+        for (let i = 0; i < 18; i++) {
+          const bit = (vInfo >>> i) & 1;
+          const a = size - 11 + (i % 3);
+          const b = Math.floor(i / 3);
+          setFunc(a, b, bit);
+          setFunc(b, a, bit);
+        }
+      }
+
+      const streamBits = [];
+      for (const b of finalBytes) {
+        for (let i = 7; i >= 0; i--) streamBits.push((b >>> i) & 1);
+      }
+      let bitIdx = 0;
+      let upward = true;
+      for (let right = size - 1; right >= 1; right -= 2) {
+        if (right === 6) right = 5;
+        for (let vert = 0; vert < size; vert++) {
+          const r = upward ? size - 1 - vert : vert;
+          for (let j = 0; j < 2; j++) {
+            const c = right - j;
+            if (!reserved[r][c]) {
+              const dataBit = bitIdx < streamBits.length ? streamBits[bitIdx++] : 0;
+              grid[r][c] = dataBit ^ ((r + c) % 2 === 0 ? 1 : 0);
+            }
+          }
+        }
+        upward = !upward;
+      }
+
+      const fmtBits = 0x77c4;
+      const putFmt = (r, c, idx) => { grid[r][c] = (fmtBits >>> idx) & 1; };
+      const tlRows = [0, 1, 2, 3, 4, 5, 7, 8];
+      for (let i = 0; i < 8; i++) putFmt(tlRows[i], 8, i);
+      const tlCols = [7, 5, 4, 3, 2, 1, 0];
+      for (let i = 0; i < 7; i++) putFmt(8, tlCols[i], 8 + i);
+      for (let i = 0; i < 8; i++) putFmt(8, size - 1 - i, i);
+      for (let i = 0; i < 7; i++) putFmt(size - 7 + i, 8, 8 + i);
+
+      const margin = 2;
+      const totalDim = size + margin * 2;
+      let pathD = '';
+      for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+          if (grid[r][c]) pathD += `M${c + margin},${r + margin}h1v1h-1z`;
+        }
+      }
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalDim} ${totalDim}" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="#fff"/><path d="${pathD}" fill="#090d16"/></svg>`;
+      return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+    } catch (e) {
+      return '';
+    }
+  }
+
   // 检测并自动从集换社 App 内置 WebView (window.jhsapp.getToken) 提取登录通行证（零抓包方案）
   function tryAutoExtractJhsAppToken() {
     try {
@@ -2425,9 +2686,8 @@
       const clean = String(detectedToken || '').replace(/^Bearer\s+/i, '').trim();
       if (clean && clean.length > 16) {
         const isNew = jhsState.token !== clean;
-        jhsState.token = clean;
         jhsState.isInJhsApp = true;
-        localStorage.setItem(JHS_TOKEN_STORAGE_KEY, clean);
+        persistJhsToken(clean);
         updateJhsTokenBadgeUI();
         if (isNew) {
           fetchUserJhsWishlists();
@@ -2441,7 +2701,7 @@
     return false;
   }
 
-  // 构建带当前购物车参数的 H5 链接（支持纯分享模式 & 集换社自动建单模式）
+  // 构建带当前购物车参数的 H5 链接（支持纯分享模式 & 集换社自动建单模式，严禁携带任何个人 Token）
   function buildSyncUrlWithCart(options = {}) {
     const { openJhs = true, autoCreate = true } = options;
     const baseUrl = window.location.protocol.startsWith('http')
@@ -2453,7 +2713,7 @@
 
     const wishName = document.getElementById('jhsNewWishListNameInput')?.value.trim();
     if (openJhs && wishName && wishName !== '符文战场选购单') {
-      params.set('wn', wishName);
+      params.set('wn', wishName.slice(0, 40));
     }
 
     if (state.cart.size > 0) {
@@ -2468,7 +2728,7 @@
     return `${baseUrl}?${params.toString()}`;
   }
 
-  // 手机端一键唤起集换社 App 内置页并全自动创建心愿单
+  // 手机端一键唤起集换社 App 内置页并创建心愿单
   async function launchJhsAppWithAutoCreate() {
     if (state.cart.size === 0) {
       showToast('⚠️ 购物车为空，请先选择要加入心愿单的卡牌');
@@ -2477,23 +2737,51 @@
     const syncUrl = buildSyncUrlWithCart({ openJhs: true, autoCreate: true });
     await copyTextSafe(syncUrl);
     const schemeUrl = `jihuanshe://www.jihuanshe.com/app/customWebView?showNav=1&url=${encodeURIComponent(syncUrl)}`;
-    showToast('🚀 正在唤起集换社 App 自动建单（已同步复制链接备用）...');
+    showToast('🚀 正在唤起集换社 App 自动同步卡单（已复制链接备用）...');
     window.location.href = schemeUrl;
   }
 
-  // 从 URL 查询参数 (?c=OGN-001:3&ja=1&ac=1) 自动恢复购物车并在集换社 App 内自动触发建单
+  // 从 URL 查询参数 (?c=OGN-001:3&ja=1&ac=1) 自动恢复购物车（自动备份原购物车 + 1 秒防误触安全确认横幅）
   function restoreCartFromUrlParams() {
     try {
       const params = new URLSearchParams(window.location.search);
       const cartParam = params.get('c') || params.get('cart');
       const jhsAuto = params.get('ja') || params.get('jhs_auto');
       const autoCreate = params.get('ac') || params.get('jhs_autocreate');
-      const wishNameParam = params.get('wn') || params.get('wish_name');
+      const rawWishName = params.get('wn') || params.get('wish_name') || '';
+      const wishNameParam = rawWishName.replace(/[<>'"`\\]/g, '').trim().slice(0, 40);
       let restoredCount = 0;
+      let backedUpPreviousCart = false;
 
       if (cartParam) {
+        // 如果原本地购物车非空，先自动备份到「已存购卡单」中，防止误点他人分享链接导致原卡表丢失
+        if (state.cart.size > 0) {
+          const prevItems = [];
+          state.cart.forEach((q, cid) => {
+            if (q > 0) prevItems.push([cid, q]);
+          });
+          if (prevItems.length > 0) {
+            const list = getSavedCartPresets();
+            const backupName = '🛡️ 自动备份_打开分享链接前';
+            const existingIdx = list.findIndex(p => p.name === backupName);
+            if (existingIdx >= 0) {
+              list[existingIdx].items = prevItems;
+              list[existingIdx].updatedAt = Date.now();
+            } else {
+              list.unshift({
+                id: `backup_${Date.now()}`,
+                name: backupName,
+                updatedAt: Date.now(),
+                items: prevItems
+              });
+            }
+            saveCartPresetsList(list);
+            backedUpPreviousCart = true;
+          }
+        }
+
         state.cart.clear();
-        const items = cartParam.split(',');
+        const items = cartParam.split(',').slice(0, 200);
         items.forEach(pair => {
           const [rawId, rawQty] = pair.split(':');
           const id = (rawId || '').trim().toUpperCase();
@@ -2520,23 +2808,32 @@
       }
 
       if (jhsAuto === '1') {
-        const tryAutoFlow = () => {
+        const showConfirmBanner = () => {
           tryAutoExtractJhsAppToken();
           updateJhsTokenBadgeUI();
-          if (autoCreate === '1' && jhsState.token && !jhsState.hasAutoCreatedInSession && state.cart.size > 0) {
-            jhsState.hasAutoCreatedInSession = true;
-            createJhsWishlistFromCart();
+          if (autoCreate === '1' && state.cart.size > 0) {
+            const banner = document.getElementById('jhsUrlAutoCreateConfirmBanner');
+            const titleEl = document.getElementById('jhsUrlAutoCreateConfirmTitle');
+            const totalQty = Array.from(state.cart.values()).reduce((s, n) => s + n, 0);
+            const targetWishName = document.getElementById('jhsNewWishListNameInput')?.value.trim() || '符文战场选购单';
+            if (titleEl) {
+              titleEl.textContent = `🛡️ 安全确认：即将为您在集换社创建心愿单「${targetWishName}」（共 ${state.cart.size} 种 / ${totalQty} 张卡牌）`;
+            }
+            if (banner) banner.style.display = 'block';
           }
         };
         setTimeout(() => {
           openJhsHubModal('wishlist');
-          tryAutoFlow();
+          showConfirmBanner();
         }, 180);
-        setTimeout(tryAutoFlow, 650);
-        setTimeout(tryAutoFlow, 1400);
+        setTimeout(showConfirmBanner, 650);
       } else if (restoredCount > 0) {
         setTimeout(() => {
-          showToast(`🎉 已从分享链接载入 ${restoredCount} 种卡牌到购物车！`);
+          showToast(
+            backedUpPreviousCart
+              ? `🎉 已从分享链接载入 ${restoredCount} 种卡牌（原购物车已自动备份至「📂 切换已存购卡单」）`
+              : `🎉 已从分享链接载入 ${restoredCount} 种卡牌到购物车！`
+          );
         }, 250);
       }
     } catch (e) {
@@ -2544,7 +2841,7 @@
     }
   }
 
-  // 智能分端状态向导更新（自动根据「已连接 / 手机未连接 / 电脑未连接」切换最简界面并刷新电脑扫码二维码）
+  // 智能分端状态向导更新（自动根据「已连接 / 手机未连接 / 电脑未连接」切换最简界面并纯本地生成电脑扫码二维码）
   function updateJhsTokenBadgeUI() {
     const btnText = document.getElementById('jhsAuthStatusBtnText');
     const toggleBtn = document.getElementById('jhsToggleAuthBoxBtn');
@@ -2554,7 +2851,11 @@
     const mobileWizard = document.getElementById('jhsMobileWizardBox');
     const pcWizard = document.getElementById('jhsPcWizardBox');
     const pcQrImg = document.getElementById('jhsPcSyncQrImg');
+    const rememberChk = document.getElementById('jhsRememberTokenCheck');
 
+    if (rememberChk) {
+      rememberChk.checked = Boolean(jhsState.rememberToken);
+    }
     if (input && jhsState.token && !input.value) {
       input.value = jhsState.token;
     }
@@ -2568,7 +2869,7 @@
     if (connectedTitle && hasToken) {
       connectedTitle.textContent = jhsState.isInJhsApp
         ? '🎉 已在集换社 App 内自动连接您的账号！点击下方「☁️ 一键在集换社创建心愿单」即可秒建单'
-        : '✅ 已绑定集换社登录通行证！直接点击下方「☁️ 一键在集换社创建心愿单」即可写入全部卡牌';
+        : `✅ 已绑定集换社登录通行证（${jhsState.rememberToken ? '已记住在此设备' : '当前会话有效，关页即销毁'}）！直接点击下方「☁️ 一键在集换社创建心愿单」即可写入`;
     }
 
     if (mobileWizard) {
@@ -2578,10 +2879,10 @@
       pcWizard.style.display = !hasToken && !isMobile ? 'block' : 'none';
       if (!hasToken && !isMobile && pcQrImg) {
         const syncUrl = buildSyncUrlWithCart({ openJhs: true, autoCreate: true });
-        const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=6&data=${encodeURIComponent(syncUrl)}`;
         if (pcQrImg.dataset.lastUrl !== syncUrl) {
           pcQrImg.dataset.lastUrl = syncUrl;
-          pcQrImg.src = qrApiUrl;
+          const localQrSvg = generateLocalQrSvgDataUrl(syncUrl);
+          if (localQrSvg) pcQrImg.src = localQrSvg;
         }
       }
     }
@@ -2771,8 +3072,7 @@
       document.getElementById('jhsPcQuickTokenInput')?.value.trim() ||
       '';
     if (tokenInputVal) {
-      jhsState.token = tokenInputVal.replace(/^Bearer\s+/i, '').trim();
-      localStorage.setItem(JHS_TOKEN_STORAGE_KEY, jhsState.token);
+      persistJhsToken(tokenInputVal.replace(/^Bearer\s+/i, '').trim());
       updateJhsTokenBadgeUI();
     }
 
@@ -3894,15 +4194,18 @@
         showToast('请先粘贴从手机端复制过来的集换社登录通行证');
         return;
       }
-      jhsState.token = cleanToken;
-      localStorage.setItem(JHS_TOKEN_STORAGE_KEY, cleanToken);
+      persistJhsToken(cleanToken);
       const input1 = document.getElementById('jhsTokenInput');
       const input2 = document.getElementById('jhsPcQuickTokenInput');
       if (input1) input1.value = cleanToken;
       if (input2) input2.value = '';
       updateJhsTokenBadgeUI();
       fetchUserJhsWishlists();
-      showToast('✅ 集换社登录通行证已绑定！现在直接点「☁️ 一键在集换社创建心愿单」即可秒建单');
+      showToast(
+        jhsState.rememberToken
+          ? '✅ 集换社登录通行证已绑定并记住在此设备！'
+          : '✅ 集换社登录通行证已绑定（仅当前会话有效，关闭页面自动销毁）！'
+      );
     };
 
     document.getElementById('jhsSaveTokenBtn')?.addEventListener('click', () => {
@@ -3912,14 +4215,48 @@
       handleSaveTokenValue(document.getElementById('jhsPcQuickTokenInput')?.value);
     });
 
+    // 通行证密码星号遮罩显示/隐藏切换
+    document.getElementById('jhsToggleTokenMaskBtn')?.addEventListener('click', e => {
+      const btn = e.currentTarget;
+      const input1 = document.getElementById('jhsTokenInput');
+      const input2 = document.getElementById('jhsPcQuickTokenInput');
+      const isHidden = !input1 || input1.type === 'password';
+      if (input1) input1.type = isHidden ? 'text' : 'password';
+      if (input2) input2.type = isHidden ? 'text' : 'password';
+      if (btn) btn.textContent = isHidden ? '🙈 隐藏' : '👁️ 显示';
+    });
+
+    // 「在此设备长期记住通行证」安全生命周期切换
+    document.getElementById('jhsRememberTokenCheck')?.addEventListener('change', e => {
+      jhsState.rememberToken = Boolean(e.target.checked);
+      persistJhsToken(jhsState.token);
+      updateJhsTokenBadgeUI();
+      showToast(
+        jhsState.rememberToken
+          ? '💾 已开启「在此设备记住通行证」'
+          : '🛡️ 已切换为「仅当前会话有效（关闭网页即自动销毁通行证）」'
+      );
+    });
+
+    // URL 同步链接防误触 1 秒安全确认横幅按钮
+    document.getElementById('jhsConfirmUrlAutoCreateBtn')?.addEventListener('click', () => {
+      const banner = document.getElementById('jhsUrlAutoCreateConfirmBanner');
+      if (banner) banner.style.display = 'none';
+      createJhsWishlistFromCart();
+    });
+    document.getElementById('jhsDismissUrlAutoCreateBtn')?.addEventListener('click', () => {
+      const banner = document.getElementById('jhsUrlAutoCreateConfirmBanner');
+      if (banner) banner.style.display = 'none';
+      showToast('👌 已取消自动建单，您可自由核对或编辑当前卡表');
+    });
+
     document.getElementById('jhsClearTokenBtn')?.addEventListener('click', () => {
-      jhsState.token = '';
       jhsState.isInJhsApp = false;
-      localStorage.removeItem(JHS_TOKEN_STORAGE_KEY);
+      persistJhsToken('');
       const input = document.getElementById('jhsTokenInput');
       if (input) input.value = '';
       updateJhsTokenBadgeUI();
-      showToast('🗑️ 已清除保存的集换社通行证');
+      showToast('🗑️ 已彻底清除保存的集换社通行证');
     });
 
     // 一键创建并同步心愿单按钮
@@ -3986,7 +4323,20 @@
       importFromJhsWishUrl();
     });
 
+    // 全局捕获阶段监听卡图加载失败并自动切换备用 CDN 地址（替代内联 onerror 属性，全面兼容严格 CSP 策略）
+    document.addEventListener(
+      'error',
+      e => {
+        const img = e.target;
+        if (img && img.tagName === 'IMG' && img.dataset?.fallback && img.src !== img.dataset.fallback) {
+          img.src = img.dataset.fallback;
+        }
+      },
+      true
+    );
+
     // 初始渲染
+    renderCartPresetsSelect();
     updateCartUI();
     refreshCatalog(true);
   }

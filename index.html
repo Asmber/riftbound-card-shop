@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="referrer" content="no-referrer" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://assets.riftatlas-workers.com https://api.jihuanshe.com https://*.jihuanshe.com; connect-src 'self' https://api.jihuanshe.com https://assets.riftatlas-workers.com; frame-ancestors 'none'; base-uri 'self'; form-action 'none';" />
   <title>《符文战场》卡牌浏览与购买系统 | RiftAtlas 数据库</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -16,6 +18,7 @@
         <h1>
           《符文战场》卡牌选购中心
           <span class="brand-badge">1,536 张全编号完整库</span>
+          <span class="brand-badge" style="background:rgba(16,185,129,0.16);color:#6ee7b7;border-color:rgba(16,185,129,0.45);" title="纯前端本地运行 · 零第三方服务端收集 · 严格 CSP 网络白名单 · 密码遮罩与会话级自动销毁保护">🛡️ 本地零上传安全保护</span>
         </h1>
         <span class="brand-subtitle">基于 RiftAtlas 卡牌浏览器 · 自由选卡加购 · 预览看板与截图/文本表格导出</span>
       </div>
@@ -829,6 +832,28 @@
         <!-- TAB 1: 一键在集换社构建新心愿单 & 实时最低价明细表 -->
         <div id="jhsTabPanel_wishlist" class="jhs-tab-panel">
 
+          <!-- 【安全防护横幅】当外部 URL 携带 ?ac=1 自动建单参数时，先弹出 1 秒安全确认，防止误点外部链接自动写入集换社 -->
+          <div id="jhsUrlAutoCreateConfirmBanner" style="display:none;margin-bottom:12px;padding:12px 14px;border-radius:10px;background:rgba(245,158,11,0.16);border:1.5px solid #f59e0b;">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+              <div>
+                <div id="jhsUrlAutoCreateConfirmTitle" style="font-size:14px;font-weight:800;color:#fde68a;">
+                  🛡️ 安全确认：检测到同步链接请求在集换社创建心愿单
+                </div>
+                <div id="jhsUrlAutoCreateConfirmSub" style="font-size:12px;color:var(--text-secondary);margin-top:2px;">
+                  为防止误触外部链接自动修改您的集换社心愿单，请确认下方卡单无误后点击右侧按钮立即写入（您原本的本地购物车已自动备份在「📂 切换已存购卡单」中）。
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button type="button" id="jhsConfirmUrlAutoCreateBtn" class="btn btn-jhs" style="height:34px;font-size:12.5px;font-weight:800;">
+                  ✅ 确认立即写入集换社心愿单
+                </button>
+                <button type="button" id="jhsDismissUrlAutoCreateBtn" class="btn" style="height:34px;font-size:12px;">
+                  ✕ 仅查看卡表，暂不创建
+                </button>
+              </div>
+            </div>
+          </div>
+
           <!-- 【智能状态卡 A】已连接集换社账号（在集换社 App 内自动识别，或已绑定通行证） -->
           <div id="jhsInAppAutoBanner" style="display:none;margin-bottom:12px;padding:12px 14px;border-radius:10px;background:rgba(16,185,129,0.14);border:1.5px solid #10b981;">
             <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
@@ -951,7 +976,7 @@
                     </div>
                   </div>
                   <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                    <input type="password" id="jhsPcQuickTokenInput" class="search-input" style="height:34px;padding:0 10px;flex:1;min-width:150px;" placeholder="在此粘贴手机复制过来的通行证..." />
+                    <input type="password" id="jhsPcQuickTokenInput" class="search-input" style="height:34px;padding:0 10px;flex:1;min-width:150px;" placeholder="在此粘贴手机复制过来的通行证..." autocomplete="off" spellcheck="false" />
                     <button type="button" id="jhsPcQuickSaveTokenBtn" class="btn btn-gold" style="height:34px;font-size:12px;white-space:nowrap;">💾 绑定并保存</button>
                   </div>
                 </div>
@@ -961,14 +986,21 @@
             <!-- 手动管理/更换通行证折叠抽屉（点击右上角「绑定/管理通行证」时展开） -->
             <div id="jhsAuthConfigBox" class="jhs-auth-box" style="display:none;margin-top:10px;padding:12px;border-radius:8px;background:var(--bg-surface);border:1px solid var(--border-subtle);">
               <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
-                <span style="font-size:12.5px;font-weight:700;color:var(--gold-light);">🔑 集换社登录通行证 (Token) 手动管理：</span>
-                <span style="font-size:11px;color:var(--text-secondary);">🔒 仅保存在您本地浏览器中，直连集换社官方接口</span>
+                <span style="font-size:12.5px;font-weight:700;color:var(--gold-light);">🔑 集换社登录通行证 (Token) 安全管理：</span>
+                <span style="font-size:11px;color:#6ee7b7;">🛡️ 纯本地加密遮罩保护 · 绝不上传任何第三方服务器 · 直连集换社官方 API</span>
               </div>
               <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                <input type="password" id="jhsTokenInput" class="search-input" style="height:34px;padding:0 10px;flex:1;min-width:180px;" placeholder="粘贴集换社登录通行证 (eyJ0eXAiOiJKV1Qi...)" />
+                <input type="password" id="jhsTokenInput" class="search-input" style="height:34px;padding:0 10px;flex:1;min-width:180px;" placeholder="粘贴集换社登录通行证 (eyJ0eXAiOiJKV1Qi...)" autocomplete="off" spellcheck="false" />
+                <button type="button" id="jhsToggleTokenMaskBtn" class="btn" style="height:34px;font-size:12px;white-space:nowrap;" title="显示或隐藏通行证字符">👁️ 显示</button>
                 <button type="button" id="jhsSaveTokenBtn" class="btn btn-accent" style="height:34px;font-size:12px;white-space:nowrap;">💾 保存通行证</button>
                 <button type="button" id="jhsCopySavedTokenBtn" class="btn" style="height:34px;font-size:12px;white-space:nowrap;" title="复制当前已保存的通行证">📋 复制</button>
                 <button type="button" id="jhsClearTokenBtn" class="btn" style="height:34px;font-size:12px;white-space:nowrap;color:#f87171;">🗑️ 清除</button>
+              </div>
+              <div style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                <label style="font-size:12px;color:var(--text-secondary);display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+                  <input type="checkbox" id="jhsRememberTokenCheck" />
+                  <span>在此设备长期记住通行证（<strong>默认不勾选：仅保存在当前会话 sessionStorage，关闭浏览器标签页即自动销毁</strong>）</span>
+                </label>
               </div>
             </div>
 
