@@ -295,7 +295,7 @@
   <!-- 全局鼠标悬停卡牌高清放大预览浮窗 -->
   <div id="hoverCardPreview" class="hover-card-preview" role="tooltip" aria-hidden="true">
     <div class="hover-preview-img-wrap">
-      <img id="hoverPreviewImg" src="" alt="" />
+      <img id="hoverPreviewImg" crossorigin="anonymous" src="" alt="" />
       <span id="hoverPreviewQty" class="hover-preview-qty-tag" style="display:none;">×1</span>
     </div>
     <div class="hover-preview-meta">
@@ -358,10 +358,6 @@
 
           <label style="font-size:12.5px;display:inline-flex;align-items:center;gap:5px;cursor:pointer;color:var(--gold-light);font-weight:600;" title="显示每张卡在集换社的全版本最低价与整单预估总价">
             <input type="checkbox" id="boardShowJhsPriceCheck" /> 💰 显示集换社最低价
-          </label>
-
-          <label style="font-size:12.5px;display:inline-flex;align-items:center;gap:5px;cursor:pointer;color:#38bdf8;font-weight:600;" title="自动按购买张数 1:1 平铺展开所有卡面（如 ×3 则绘制 3 张）并去除卡面角标遮挡，下方独立标注「×数量」，集换社 App 相册识卡可直接识别对应张数！">
-            <input type="checkbox" id="boardJhsAiCleanModeCheck" /> 📸 集换社 AI 识卡纯净拼图（按张数 1:1 展开）
           </label>
 
           <div class="toolbar-spacer"></div>
@@ -734,9 +730,9 @@
           </div>
         </div>
 
-        <div class="jhs-hub-tabs" role="tablist">
+        <div id="jhsHubTabs" class="jhs-hub-tabs" role="tablist">
           <button type="button" class="jhs-tab-btn active" data-jhs-tab="wishlist">
-            ☁️ 1. 一键构建集换社心愿单 & 实时最低价
+            ☁️ 1. 一键构建集换社心愿单 &amp; 实时最低价
           </button>
           <button type="button" class="jhs-tab-btn" data-jhs-tab="shop">
             🏪 2. 卖家店铺库存 1v1 配单比对
@@ -750,43 +746,78 @@
       <div class="modal-body">
         <!-- TAB 1: 一键在集换社构建新心愿单 & 实时最低价明细表 -->
         <div id="jhsTabPanel_wishlist" class="jhs-tab-panel">
+          <!-- 集换社 App 内置环境自动识别横幅（当检测到 window.jhsapp 时自动展示） -->
+          <div id="jhsInAppAutoBanner" style="display:none;margin-bottom:12px;padding:12px 14px;border-radius:10px;background:rgba(16,185,129,0.14);border:1.5px solid #10b981;">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+              <div>
+                <div style="font-size:14px;font-weight:800;color:#34d399;">
+                  🎉 已检测到集换社 App 内置浏览器环境 (`window.jhsapp`)，登录 Token 已自动提取！
+                </div>
+                <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">
+                  您现在可以直接点击下方「☁️ 直接在集换社新建心愿单」，或点击右侧按钮复制您的 Token 发到电脑端浏览器永久使用。
+                </div>
+              </div>
+              <button type="button" id="jhsCopyInAppTokenBtn" class="btn btn-gold" style="height:34px;font-weight:800;">
+                📋 一键复制我的 Token (供电脑使用)
+              </button>
+            </div>
+          </div>
+
           <!-- 直接在集换社 App 创建新心愿单卡片 -->
           <div class="jhs-sync-card">
             <div class="jhs-sync-header">
               <div>
                 <div style="font-size:14.5px;font-weight:800;color:#fdba74;">
-                  🚀 方案 A：直接在集换社构建新心愿单（将购物车全部卡牌一键写入集换社 App）
+                  🚀 一键在集换社构建新心愿单（将购物车全部卡牌与数量直接写入集换社 App）
                 </div>
                 <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">
-                  通过集换社官方市场接口（<code>POST /api/market/wish-list</code> &amp; <code>/wishes/add</code>）直接创建心愿单，完成后在集换社 App 内可直接点击「一键匹配 / 跨店配单」！
+                  通过集换社官方接口（<code>POST /api/market/wish-list</code> &amp; <code>/wishes/add</code>）批量写入卡牌与对应张数，完成后在集换社 App 内可直接点击「一键匹配 / 跨店配单」！
                 </div>
               </div>
-              <button type="button" id="jhsToggleAuthBoxBtn" class="btn" style="height:30px;font-size:12px;flex-shrink:0;">
-                🔑 <span id="jhsAuthStatusBtnText">配置集换社账号 Token</span>
+              <button type="button" id="jhsToggleAuthBoxBtn" class="btn" style="height:32px;font-size:12px;flex-shrink:0;">
+                🔑 <span id="jhsAuthStatusBtnText">免抓包获取 / 配置 Token</span>
               </button>
             </div>
 
-            <!-- 账号登录 / Token 配置折叠框 -->
-            <div id="jhsAuthConfigBox" class="jhs-auth-box" style="display:none;">
-              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;">
-                <div style="background:var(--bg-surface);padding:10px 12px;border-radius:8px;border:1px solid var(--border-subtle);">
-                  <div style="font-size:12.5px;font-weight:700;color:var(--gold-light);margin-bottom:6px;">方式 1：集换社手机号验证码快捷登录</div>
-                  <div style="display:flex;gap:6px;margin-bottom:6px;">
-                    <input type="tel" id="jhsPhoneInput" class="search-input" style="height:32px;padding:0 10px;flex:1;" placeholder="输入集换社绑定手机号" />
-                    <button type="button" id="jhsSendSmsBtn" class="btn" style="height:32px;font-size:12px;white-space:nowrap;">发送验证码</button>
+            <!-- 账号登录 / 免抓包自动提取 Token 配置折叠框 -->
+            <div id="jhsAuthConfigBox" class="jhs-auth-box" style="display:none;margin-top:10px;">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;">
+                <!-- 免抓包方案：利用集换社 App 内置 WebView 自动注入的 window.jhsapp.getToken() -->
+                <div style="background:var(--bg-surface);padding:12px 14px;border-radius:8px;border:1px solid rgba(249,115,22,0.45);">
+                  <div style="font-size:13px;font-weight:800;color:#fdba74;margin-bottom:6px;">
+                    ✨ 方式 1（强烈推荐·免抓包）：在集换社 App 内打开本页自动读取 Token
                   </div>
-                  <div style="display:flex;gap:6px;">
-                    <input type="text" id="jhsSmsCodeInput" class="search-input" style="height:32px;padding:0 10px;flex:1;" placeholder="输入短信验证码" />
-                    <button type="button" id="jhsSmsLoginBtn" class="btn btn-gold" style="height:32px;font-size:12px;white-space:nowrap;">登录获取 Token</button>
+                  <div style="font-size:11.5px;color:var(--text-secondary);line-height:1.5;margin-bottom:10px;">
+                    集换社 App 内置浏览器会自动注入官方 <code>window.jhsapp.getToken()</code> 接口。<strong>无需安装任何抓包软件或证书</strong>，只需用以下任一方式在集换社 App 内打开本页，即可全自动读取您的登录 Token（还能一键复制发给电脑端）：
+                  </div>
+                  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+                    <button type="button" id="jhsLaunchAppWebviewBtn" class="btn btn-jhs" style="height:34px;font-size:12px;font-weight:800;">
+                      📱 手机端：一键在集换社 App 内打开本页 (自动带入购物车)
+                    </button>
+                    <button type="button" id="jhsCopySyncPageUrlBtn" class="btn" style="height:34px;font-size:12px;">
+                      🔗 复制带购物车链接 (发到集换社私信/评论点击打开)
+                    </button>
+                  </div>
+                  <div style="font-size:11px;color:#94a3b8;line-height:1.45;">
+                    💡 <strong>操作提示</strong>：① 若在手机浏览器中，直接点上方橙色按钮即可唤起集换社 App 内置页；② 若被浏览器拦截或在电脑端，点「复制带购物车链接」发送到集换社 App 内（如私信/评论）点击打开，页面会自动提取 Token 并展示「一键复制我的 Token」按钮！
                   </div>
                 </div>
 
-                <div style="background:var(--bg-surface);padding:10px 12px;border-radius:8px;border:1px solid var(--border-subtle);">
-                  <div style="font-size:12.5px;font-weight:700;color:var(--gold-light);margin-bottom:6px;">方式 2：直接粘贴集换社 Bearer Token</div>
-                  <div style="display:flex;gap:6px;margin-bottom:6px;">
-                    <input type="password" id="jhsTokenInput" class="search-input" style="height:32px;padding:0 10px;flex:1;" placeholder="粘贴 Authorization Bearer Token..." />
-                    <button type="button" id="jhsSaveTokenBtn" class="btn btn-accent" style="height:32px;font-size:12px;white-space:nowrap;">保存 Token</button>
-                    <button type="button" id="jhsClearTokenBtn" class="btn" style="height:32px;font-size:12px;white-space:nowrap;">清除</button>
+                <!-- 手动粘贴保存 Token -->
+                <div style="background:var(--bg-surface);padding:12px 14px;border-radius:8px;border:1px solid var(--border-subtle);display:flex;flex-direction:column;justify-content:space-between;">
+                  <div>
+                    <div style="font-size:13px;font-weight:800;color:var(--gold-light);margin-bottom:6px;">
+                      🔑 方式 2：粘贴集换社 Bearer Token（保存后长期有效）
+                    </div>
+                    <div style="font-size:11.5px;color:var(--text-secondary);line-height:1.45;margin-bottom:8px;">
+                      将通过方式 1「一键复制」得到的 Token（或手机抓包 <code>api.jihuanshe.com</code> 请求头中的 <code>Authorization: Bearer eyJ...</code>）粘贴到下方：
+                    </div>
+                    <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
+                      <input type="password" id="jhsTokenInput" class="search-input" style="height:34px;padding:0 10px;flex:1;min-width:160px;" placeholder="粘贴 eyJ0eXAiOiJKV1Qi... 或 Bearer Token" />
+                      <button type="button" id="jhsSaveTokenBtn" class="btn btn-accent" style="height:34px;font-size:12px;white-space:nowrap;">💾 保存 Token</button>
+                      <button type="button" id="jhsCopySavedTokenBtn" class="btn" style="height:34px;font-size:12px;white-space:nowrap;" title="复制当前已保存的 Token">📋 复制</button>
+                      <button type="button" id="jhsClearTokenBtn" class="btn" style="height:34px;font-size:12px;white-space:nowrap;">清除</button>
+                    </div>
                   </div>
                   <div style="font-size:11px;color:var(--text-secondary);line-height:1.4;">
                     🔒 Token 仅保存在您当前浏览器的本地存储 (<code>localStorage</code>) 中，直连 <code>api.jihuanshe.com</code>，绝不经过任何第三方服务器。
@@ -798,8 +829,14 @@
             <!-- 创建新心愿单主操作行 -->
             <div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border-subtle);">
               <label style="font-size:12.5px;display:inline-flex;align-items:center;gap:6px;">
+                目标心愿单：
+                <select id="jhsTargetWishlistSelect" class="filter-select" style="height:34px;">
+                  <option value="new">➕ 新建独立心愿单（推荐）</option>
+                </select>
+              </label>
+              <label style="font-size:12.5px;display:inline-flex;align-items:center;gap:6px;">
                 新心愿单名称：
-                <input type="text" id="jhsNewWishListNameInput" class="search-input" style="width:200px;height:34px;padding:0 10px;" value="符文战场选购单" />
+                <input type="text" id="jhsNewWishListNameInput" class="search-input" style="width:185px;height:34px;padding:0 10px;" value="符文战场选购单" />
               </label>
               <label style="font-size:12.5px;display:inline-flex;align-items:center;gap:5px;cursor:pointer;" title="开启后在集换社配单时不限制具体罕贵度版本，更容易在同一家店铺凑齐">
                 <input type="checkbox" id="jhsIgnoreVersionCheck" checked /> 允许匹配任意版本 (配单更易凑齐)
@@ -809,14 +846,13 @@
                 <button type="button" id="jhsCreateWishListBtn" class="btn btn-jhs" style="height:36px;font-weight:800;">
                   ☁️ 直接在集换社新建心愿单并写入全部卡牌
                 </button>
-                <button type="button" id="jhsQuickExportTextBtn" class="btn" style="height:36px;" title="免登录导出集换社心愿单格式表格">
-                  📋 导出心愿单文本表格
-                </button>
-                <button type="button" id="jhsQuickAiBoardBtn" class="btn" style="height:36px;" title="免登录生成集换社 AI 识卡专用无遮挡拼图">
-                  📸 生成 AI 识卡纯净拼图
+                <button type="button" id="jhsQuickExportTextBtn" class="btn" style="height:36px;" title="免登录一键复制集换社心愿单格式表格">
+                  📋 复制心愿单配卡表
                 </button>
               </div>
             </div>
+
+            <div id="jhsCreateWishProgress" style="font-size:12.5px;color:#fdba74;margin-top:8px;display:none;"></div>
 
             <!-- 写入进度与成功后的集换社 App 唤醒卡片 -->
             <div id="jhsCreatedWishResultBox" style="display:none;margin-top:12px;padding:12px;border-radius:10px;background:rgba(16,185,129,0.12);border:1.5px solid #10b981;">
@@ -825,7 +861,9 @@
                   <div id="jhsCreatedWishTitle" style="font-size:14px;font-weight:800;color:#34d399;">
                     ✅ 已成功在集换社创建心愿单并写入卡牌！
                   </div>
-                  <div id="jhsCreatedWishSub" style="font-size:12px;color:var(--text-secondary);margin-top:4px;"></div>
+                  <div id="jhsCreatedWishSub" style="font-size:12px;color:var(--text-secondary);margin-top:4px;">
+                    现在即可直接唤起集换社 App 进入该心愿单，使用官方「一键匹配 / 卖家配单」功能直接下单！
+                  </div>
                   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
                     <a id="jhsOpenCreatedWishAppBtn" href="#" class="btn btn-gold" style="text-decoration:none;height:34px;">
                       📱 一键唤起集换社 App 打开该心愿单
@@ -833,10 +871,13 @@
                     <a id="jhsOpenCreatedWishWebBtn" href="#" target="_blank" rel="noopener" class="btn" style="text-decoration:none;height:34px;">
                       🌐 打开心愿单分享网页
                     </a>
+                    <button type="button" id="jhsCopyCreatedWishUrlBtn" class="btn" style="height:34px;">
+                      🔗 复制心愿单分享链接
+                    </button>
                   </div>
                 </div>
                 <div style="text-align:center;background:#fff;padding:6px;border-radius:8px;">
-                  <img id="jhsCreatedWishQrImg" src="" alt="集换社小程序心愿单二维码" style="width:92px;height:92px;display:block;" />
+                  <img id="jhsCreatedWishQrImg" crossorigin="anonymous" src="" alt="集换社小程序心愿单二维码" style="width:92px;height:92px;display:block;" />
                   <div style="font-size:10px;color:#090d16;font-weight:700;margin-top:2px;">微信扫码直达心愿单</div>
                 </div>
               </div>
@@ -919,13 +960,14 @@
             <label style="font-size:12.5px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
               <input type="checkbox" id="jhsImportWishReplaceCheck" /> 清空现有购物车后导入（默认在现有购物车数量上累加）
             </label>
+            <div id="jhsImportWishStatusBox" style="margin-top:8px;font-size:12.5px;"></div>
           </div>
         </div>
       </div>
 
       <div class="modal-footer">
         <span style="font-size:12px;color:var(--text-secondary);">
-          💡 提示：手机端点击单卡「📱 跳 App」可直接唤起集换社 App 对应单卡购买页；若需免登录批量加心愿单，推荐使用「📸 生成 AI 识卡纯净拼图」后在 App 相册识卡导入
+          💡 提示：手机端可点击「📱 一键在集换社 App 内打开本页」免抓包自动提取 Token 并同步心愿单；也可点击单卡右侧「📱 跳 App」直达对应单卡在售页
         </span>
         <div class="modal-footer-btns" style="display:flex;gap:8px;">
           <button type="button" class="btn" data-close-modal="jhsHubModal">关闭窗口</button>

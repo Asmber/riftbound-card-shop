@@ -555,6 +555,7 @@
               <div class="list-thumb-wrap" data-action="detail" data-id="${card.id}" style="cursor:pointer;">
                 <img
                   class="list-thumb ${card.type === 'Battlefield' ? 'battlefield-rot-img' : ''}"
+                  crossorigin="anonymous"
                   src="${card.imgSmall}"
                   data-fallback="${card.imgFallbackSmall}"
                   alt="${card.name}"
@@ -639,6 +640,7 @@
         <div class="cart-item-thumb-wrap" data-action="detail" data-id="${card.id}">
           <img
             class="cart-item-thumb ${card.type === 'Battlefield' ? 'battlefield-rot-img' : ''}"
+            crossorigin="anonymous"
             src="${card.imgSmall}"
             data-fallback="${card.imgFallbackSmall}"
             alt="${card.name}"
@@ -775,6 +777,7 @@
       <div class="card-detail-layout">
         <div style="border-radius:12px;overflow:hidden;border:1.5px solid var(--gold-primary);background:#090d16;">
           <img
+            crossorigin="anonymous"
             src="${card.imgOriginal}"
             data-fallback="${card.imgFallbackOriginal}"
             alt="${card.name}"
@@ -838,6 +841,7 @@
                     <div style="position:relative;width:100%;aspect-ratio:488/680;overflow:hidden;border-radius:6px;border:1px solid var(--border-strong);background:#090d16;">
                       <img
                         class="${p.type === 'Battlefield' ? 'battlefield-rot-img' : ''}"
+                        crossorigin="anonymous"
                         src="${p.imgSmall}"
                         data-fallback="${p.imgFallbackSmall}"
                         alt="${p.id}"
@@ -937,40 +941,14 @@
     }));
   }
 
-  // 在「集换社 AI 拍照识卡纯净拼图」模式下，自动将多张卡牌按购买数量 (如 ×3) 1:1 平铺展开为独立卡面，
-  // 这样集换社 App 相册识卡扫描一次即可自动识别出准确的购买张数（无需手动改数量），同时卡框下方清晰标注总张数与第几张
-  function expandSectionsForAiMode(sections, aiCleanMode) {
-    if (!aiCleanMode) return sections;
-    return sections.map(sec => {
-      const expandedEntries = [];
-      for (const item of sec.entries) {
-        const repeatCount = Math.min(Math.max(1, item.qty), 12);
-        for (let i = 0; i < repeatCount; i++) {
-          expandedEntries.push({
-            card: item.card,
-            qty: item.qty,
-            copyIndex: i + 1,
-            totalCopies: item.qty,
-            isAiExpanded: true
-          });
-        }
-      }
-      return {
-        title: sec.title,
-        entries: expandedEntries
-      };
-    });
-  }
-
   function renderVisualPreviewBoard() {
     const container = document.getElementById('visualBoardContainer');
     const entries = getFilteredBoardEntries();
     const title = document.getElementById('boardTitleInput').value.trim() || '《符文战场》卡牌选购清单';
     const groupBy = document.getElementById('boardGroupSelect').value;
     const cols = parseInt(document.getElementById('boardColsSelect').value, 10) || 6;
-    const aiCleanMode = Boolean(document.getElementById('boardJhsAiCleanModeCheck')?.checked);
     const showCaption = Boolean(document.getElementById('boardShowCaptionCheck')?.checked);
-    const showJhsPrice = !aiCleanMode && Boolean(document.getElementById('boardShowJhsPriceCheck')?.checked);
+    const showJhsPrice = Boolean(document.getElementById('boardShowJhsPriceCheck')?.checked);
 
     if (showJhsPrice && entries.some(({ card }) => !jhsVersionsCache.has(card.id)) && !jhsState.isFetchingCartPrices) {
       ensureCartJhsPricesLoaded(false).then(() => {
@@ -1002,19 +980,14 @@
         if (p > 0) totalJhsCost += p * qty;
       });
     }
-    const rawSections = getGroupedCartSections(groupBy, entries);
-    const sections = expandSectionsForAiMode(rawSections, aiCleanMode);
+    const sections = getGroupedCartSections(groupBy, entries);
     const dateStr = new Date().toLocaleDateString('zh-CN');
 
     container.innerHTML = `
       <div class="board-banner">
         <div>
           <div class="board-banner-title">${escapeHtml(title)}</div>
-          <div class="board-banner-sub">${
-            aiCleanMode
-              ? `🤖 集换社 App「AI 拍照识卡」纯净拼图模式 · 已按购买张数 (${totalQty}张) 1:1 平铺展开且去除卡面遮挡，集换社相册识卡可直接识别对应数量！`
-              : `RiftAtlas《符文战场》选购预览看板 · 生成日期 ${dateStr} · 鼠标悬停卡牌可高清放大预览`
-          }</div>
+          <div class="board-banner-sub">RiftAtlas《符文战场》选购预览看板 · 生成日期 ${dateStr} · 鼠标悬停卡牌可高清放大预览</div>
         </div>
         <div class="board-banner-stats">
           <div class="board-stat-pill"><strong>${totalQty}</strong>总张数</div>
@@ -1024,17 +997,16 @@
       </div>
 
       ${sections.map(sec => {
-        const secTotal = sec.entries.length;
         return `
           <div class="board-group-section">
-            ${groupBy !== 'none' && !aiCleanMode ? `
+            ${groupBy !== 'none' ? `
               <div class="board-group-header">
                 <span>◆ ${escapeHtml(sec.title)}</span>
                 <span class="count">${sec.entries.reduce((s, e) => s + e.qty, 0)} 张 (${sec.entries.length} 种)</span>
               </div>
             ` : ''}
             <div class="board-cards-grid">
-              ${sec.entries.map(({ card, qty, copyIndex, isAiExpanded }) => {
+              ${sec.entries.map(({ card, qty }) => {
                 const jhsVer = showJhsPrice ? getSelectedJhsVersion(card) : null;
                 const jhsMinP = parseFloat(jhsVer?.min_price);
                 return `
@@ -1048,20 +1020,13 @@
                       alt="${escapeHtml(card.name)}"
                       onerror="if(this.dataset.fallback && this.src!==this.dataset.fallback){this.src=this.dataset.fallback;}"
                     />
-                    ${!aiCleanMode ? `<span class="qty-badge">×${qty}</span>` : ''}
+                    <span class="qty-badge">×${qty}</span>
                     ${showJhsPrice && jhsMinP > 0 ? `<span class="jhs-price-tag">¥${jhsMinP.toFixed(2)}</span>` : ''}
                   </div>
                   ${showCaption ? `
                     <div class="board-card-caption">
-                      <div class="nm" title="${escapeHtml(card.name)}">
-                        ${escapeHtml(card.name)}
-                        ${isAiExpanded ? `<strong style="color:var(--gold-light);margin-left:3px;">×${qty}</strong>` : ''}
-                      </div>
-                      <div class="cid">${
-                        isAiExpanded
-                          ? `${card.id} · 第 ${copyIndex}/${qty} 张`
-                          : `${card.id}${showJhsPrice && jhsMinP > 0 ? ` · ¥${(jhsMinP * qty).toFixed(2)}` : ''}`
-                      }</div>
+                      <div class="nm" title="${escapeHtml(card.name)}">${escapeHtml(card.name)}</div>
+                      <div class="cid">${card.id}${showJhsPrice && jhsMinP > 0 ? ` · ¥${(jhsMinP * qty).toFixed(2)}` : ''}</div>
                     </div>
                   ` : ''}
                 </div>
@@ -1083,9 +1048,10 @@
   }
 
   // 加载单张图片用于 Canvas 绘制
-  // 注意：assets.riftatlas-workers.com 对未知查询参数 (如 ?cors=1) 会返回 403 Forbidden，
-  // 因此严禁修改原 URL 查询串，统一通过 fetch(url, { mode: 'cors', cache: 'no-cache' }) -> Blob -> ObjectURL 加载，
-  // 彻底解决浏览器非 CORS 缓存冲突与 Canvas 跨域污染问题。
+  // 核心防坑：
+  // 1) assets.riftatlas-workers.com 对未知查询参数 (?cors=1) 或 OPTIONS 预检请求 (如 fetch 附带 Cache-Control) 均返回 403 Forbidden；
+  // 2) 优先请求从未被无 CORS 缓存过的 card.imgOriginal (/zh-CN/original/*.webp)，并通过 createImageBitmap(blob) 直接解码为位图（或保留 ObjectURL），
+  //    避免 URL.revokeObjectURL 过早释放导致 WebKit/Chromium 延迟解码 WebP 时绘出空白。
   const canvasImageCache = new Map();
 
   async function loadCardImageForCanvas(card) {
@@ -1094,20 +1060,36 @@
       return canvasImageCache.get(card.id);
     }
 
-    const loadViaFetchBlob = async url => {
+    const loadViaFetchBitmap = async url => {
       if (!url) return null;
       try {
-        let resp = await fetch(url, { mode: 'cors' });
-        if (!resp.ok) {
-          resp = await fetch(url, { mode: 'cors', cache: 'no-cache' });
-        }
+        const resp = await fetch(url, { mode: 'cors' });
         if (!resp.ok) return null;
         const blob = await resp.blob();
+        if (!blob || blob.size === 0) return null;
+
+        if (typeof window.createImageBitmap === 'function') {
+          try {
+            const bmp = await createImageBitmap(blob);
+            if (bmp && bmp.width > 0 && bmp.height > 0) {
+              return bmp;
+            }
+          } catch (bmpErr) {
+            // 回退到 HTMLImageElement
+          }
+        }
+
         const objUrl = URL.createObjectURL(blob);
         return await new Promise(resolve => {
           const img = new Image();
-          img.onload = () => {
-            URL.revokeObjectURL(objUrl);
+          img.onload = async () => {
+            try {
+              if (typeof img.decode === 'function') {
+                await img.decode();
+              }
+            } catch (e) {
+              // ignore
+            }
             resolve(img);
           };
           img.onerror = () => {
@@ -1117,26 +1099,7 @@
           img.src = objUrl;
         });
       } catch (err) {
-        try {
-          const resp2 = await fetch(url, { mode: 'cors', cache: 'reload' });
-          if (!resp2.ok) return null;
-          const blob2 = await resp2.blob();
-          const objUrl2 = URL.createObjectURL(blob2);
-          return await new Promise(resolve => {
-            const img = new Image();
-            img.onload = () => {
-              URL.revokeObjectURL(objUrl2);
-              resolve(img);
-            };
-            img.onerror = () => {
-              URL.revokeObjectURL(objUrl2);
-              resolve(null);
-            };
-            img.src = objUrl2;
-          });
-        } catch (err2) {
-          return null;
-        }
+        return null;
       }
     };
 
@@ -1145,15 +1108,31 @@
       return new Promise(resolve => {
         const img = new Image();
         img.crossOrigin = 'anonymous';
-        img.onload = () => resolve(img);
+        img.onload = () => {
+          try {
+            const testCanvas = document.createElement('canvas');
+            testCanvas.width = 1;
+            testCanvas.height = 1;
+            const tCtx = testCanvas.getContext('2d');
+            tCtx.drawImage(img, 0, 0, 1, 1);
+            testCanvas.toDataURL('image/png');
+            resolve(img);
+          } catch (taintErr) {
+            resolve(null);
+          }
+        };
         img.onerror = () => resolve(null);
         img.src = url;
       });
     };
 
     let loadedImg =
-      (await loadViaFetchBlob(card.imgSmall)) ||
-      (await loadViaFetchBlob(card.imgFallbackSmall)) ||
+      (await loadViaFetchBitmap(card.imgOriginal)) ||
+      (await loadViaFetchBitmap(card.imgFallbackOriginal)) ||
+      (await loadViaFetchBitmap(card.imgSmall)) ||
+      (await loadViaFetchBitmap(card.imgFallbackSmall)) ||
+      (await loadViaDirectImg(card.imgOriginal)) ||
+      (await loadViaDirectImg(card.imgFallbackOriginal)) ||
       (await loadViaDirectImg(card.imgSmall)) ||
       (await loadViaDirectImg(card.imgFallbackSmall));
 
@@ -1188,11 +1167,9 @@
     const title = document.getElementById('boardTitleInput').value.trim() || '《符文战场》卡牌选购清单';
     const groupBy = document.getElementById('boardGroupSelect').value;
     const cols = parseInt(document.getElementById('boardColsSelect').value, 10) || 6;
-    const aiCleanMode = Boolean(document.getElementById('boardJhsAiCleanModeCheck')?.checked);
     const showCaption = Boolean(document.getElementById('boardShowCaptionCheck')?.checked);
-    const showJhsPrice = !aiCleanMode && Boolean(document.getElementById('boardShowJhsPriceCheck')?.checked);
-    const rawSections = getGroupedCartSections(groupBy, entries);
-    const sections = expandSectionsForAiMode(rawSections, aiCleanMode);
+    const showJhsPrice = Boolean(document.getElementById('boardShowJhsPriceCheck')?.checked);
+    const sections = getGroupedCartSections(groupBy, entries);
 
     if (showJhsPrice) {
       await ensureCartJhsPricesLoaded(false);
@@ -1209,7 +1186,7 @@
     const gapX = 16;
     const gapY = 18;
     const headerH = 92;
-    const groupTitleH = groupBy !== 'none' && !aiCleanMode ? 38 : 0;
+    const groupTitleH = groupBy !== 'none' ? 38 : 0;
     const sectionGap = 24;
 
     const boardW = padX * 2 + cols * cardW + (cols - 1) * gapX;
@@ -1270,13 +1247,7 @@
 
     ctx.fillStyle = '#94a3b8';
     ctx.font = '13px "Microsoft YaHei", "PingFang SC", sans-serif';
-    ctx.fillText(
-      aiCleanMode
-        ? `集换社 App「AI 拍照识卡」纯净拼图（已按张数 1:1 展开共 ${totalQty} 张） · 导出日期 ${dateStr}`
-        : `《符文战场》卡牌选购预览清单 · 导出日期 ${dateStr}`,
-      padX,
-      padY + 56
-    );
+    ctx.fillText(`《符文战场》卡牌选购预览清单 · 导出日期 ${dateStr}`, padX, padY + 56);
 
     // 右侧统计胶囊
     const statText = showJhsPrice
@@ -1307,7 +1278,7 @@
     let curY = padY + headerH;
 
     for (const sec of sections) {
-      if (groupBy !== 'none' && !aiCleanMode) {
+      if (groupBy !== 'none') {
         const secQty = sec.entries.reduce((s, e) => s + e.qty, 0);
         ctx.fillStyle = '#f8fafc';
         ctx.font = 'bold 16px "Microsoft YaHei", "PingFang SC", sans-serif';
@@ -1315,7 +1286,7 @@
         curY += groupTitleH;
       }
 
-      sec.entries.forEach(({ card, qty, copyIndex, isAiExpanded }, index) => {
+      sec.entries.forEach(({ card, qty }, index) => {
         const col = index % cols;
         const row = Math.floor(index / cols);
         const x = padX + col * (cardW + gapX);
@@ -1355,38 +1326,36 @@
         }
         ctx.restore();
 
-        // 右上角数量角标 (×N) - AI 纯净识卡模式下不遮挡卡面图案，改为平铺展开+卡框外底部标注数量
-        if (!aiCleanMode) {
-          const badgeText = `×${qty}`;
-          ctx.font = 'bold 16px "Segoe UI", "Microsoft YaHei", sans-serif';
-          const bw = Math.max(44, ctx.measureText(badgeText).width + 20);
-          const bh = 28;
-          const bx = x + cardW - bw - 8;
-          const by = y + 8;
+        // 右上角数量角标 (×N)
+        const badgeText = `×${qty}`;
+        ctx.font = 'bold 16px "Segoe UI", "Microsoft YaHei", sans-serif';
+        const bw = Math.max(44, ctx.measureText(badgeText).width + 20);
+        const bh = 28;
+        const bx = x + cardW - bw - 8;
+        const by = y + 8;
 
-          ctx.save();
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-          ctx.shadowBlur = 8;
-          const badgeGrad = ctx.createLinearGradient(bx, by, bx + bw, by + bh);
-          badgeGrad.addColorStop(0, '#facc15');
-          badgeGrad.addColorStop(1, '#ca8a04');
-          ctx.fillStyle = badgeGrad;
-          drawRoundedRect(ctx, bx, by, bw, bh, 14);
-          ctx.fill();
-          ctx.strokeStyle = '#fef08a';
-          ctx.lineWidth = 1.5;
-          ctx.stroke();
-          ctx.restore();
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+        ctx.shadowBlur = 8;
+        const badgeGrad = ctx.createLinearGradient(bx, by, bx + bw, by + bh);
+        badgeGrad.addColorStop(0, '#facc15');
+        badgeGrad.addColorStop(1, '#ca8a04');
+        ctx.fillStyle = badgeGrad;
+        drawRoundedRect(ctx, bx, by, bw, bh, 14);
+        ctx.fill();
+        ctx.strokeStyle = '#fef08a';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.restore();
 
-          ctx.fillStyle = '#090d16';
-          ctx.font = '900 15px "Segoe UI", "Microsoft YaHei", sans-serif';
-          ctx.textAlign = 'center';
-          ctx.fillText(badgeText, bx + bw / 2, by + 19.5);
-          ctx.textAlign = 'left';
-        }
+        ctx.fillStyle = '#090d16';
+        ctx.font = '900 15px "Segoe UI", "Microsoft YaHei", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(badgeText, bx + bw / 2, by + 19.5);
+        ctx.textAlign = 'left';
 
         // 左下角集换社最低价标签
-        if (showJhsPrice && !aiCleanMode) {
+        if (showJhsPrice) {
           const jhsVer = getSelectedJhsVersion(card);
           const minP = parseFloat(jhsVer?.min_price);
           if (minP > 0) {
@@ -1411,7 +1380,7 @@
           }
         }
 
-        // 底部卡名与编号标签（位于卡面下方外部，不遮挡卡图，AI 模式下清晰显示 ×数量 与 第几张）
+        // 底部卡名与编号标签
         if (showCaption) {
           const capY = y + cardH;
           ctx.fillStyle = '#0f172a';
@@ -1421,22 +1390,17 @@
           ctx.fillStyle = '#f8fafc';
           ctx.font = 'bold 12.5px "Microsoft YaHei", "PingFang SC", sans-serif';
           ctx.textAlign = 'center';
-          const nameWithQty = isAiExpanded ? `${card.name} ×${qty}` : card.name;
-          let displayName = nameWithQty;
+          let displayName = card.name;
           while (displayName.length > 1 && ctx.measureText(displayName).width > cardW - 14) {
             displayName = displayName.slice(0, -1);
           }
-          if (displayName !== nameWithQty) displayName += '…';
+          if (displayName !== card.name) displayName += '…';
           ctx.fillText(displayName, x + cardW / 2, capY + 17);
 
           const jhsVer = showJhsPrice ? getSelectedJhsVersion(card) : null;
           const minP = parseFloat(jhsVer?.min_price);
-          const subText = isAiExpanded
-            ? `${card.id} · 第 ${copyIndex}/${qty} 张`
-            : showJhsPrice && minP > 0
-            ? `${card.id} · ¥${(minP * qty).toFixed(2)}`
-            : card.id;
-          ctx.fillStyle = isAiExpanded ? '#fde047' : '#94a3b8';
+          const subText = showJhsPrice && minP > 0 ? `${card.id} · ¥${(minP * qty).toFixed(2)}` : card.id;
+          ctx.fillStyle = '#94a3b8';
           ctx.font = '11px Consolas, "Microsoft YaHei", monospace';
           ctx.fillText(subText, x + cardW / 2, capY + 34);
           ctx.textAlign = 'left';
@@ -1473,6 +1437,14 @@
         img.src = dataUrl;
         box.style.display = 'block';
         box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+      // 如果在集换社 App 内置浏览器中，支持直接调用原生保存图片接口
+      if (typeof window.jhsapp?.saveShareImage === 'function') {
+        try {
+          window.jhsapp.saveShareImage(dataUrl);
+        } catch (e) {
+          // ignore
+        }
       }
     } catch (e) {
       // ignore
@@ -2221,7 +2193,7 @@
     }
 
     jhsState.isFetchingCartPrices = true;
-    const statusEl = document.getElementById('jhsPriceFetchStatus');
+    const statusEl = document.getElementById('jhsMatchStatusText') || document.getElementById('jhsPriceFetchStatus');
     let completed = entries.length - targets.length;
 
     const updateProgressText = () => {
@@ -2252,23 +2224,147 @@
     }
   }
 
+  // 兼容移动端内置 WebView 的剪贴板复制工具函数
+  async function copyTextSafe(text) {
+    if (!text) return false;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch (e) {
+      // fallback below
+    }
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.top = '-9999px';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // 检测并自动从集换社 App 内置 WebView (window.jhsapp.getToken) 提取登录 Token（零抓包方案）
+  function tryAutoExtractJhsAppToken() {
+    try {
+      let detectedToken = '';
+      if (window.jhsapp && typeof window.jhsapp.getToken === 'function') {
+        detectedToken = window.jhsapp.getToken() || '';
+      } else if (window.clientBridge) {
+        if (typeof window.clientBridge.getToken === 'function') {
+          detectedToken = window.clientBridge.getToken() || '';
+        } else if (typeof window.clientBridge.token === 'string') {
+          detectedToken = window.clientBridge.token;
+        }
+      }
+
+      const clean = String(detectedToken || '').replace(/^Bearer\s+/i, '').trim();
+      if (clean && clean.length > 16) {
+        const isNew = jhsState.token !== clean;
+        jhsState.token = clean;
+        localStorage.setItem(JHS_TOKEN_STORAGE_KEY, clean);
+        const banner = document.getElementById('jhsInAppAutoBanner');
+        if (banner) banner.style.display = 'block';
+        updateJhsTokenBadgeUI();
+        if (isNew) {
+          fetchUserJhsWishlists();
+          showToast('🎉 已从集换社 App 内置环境自动提取登录 Token！');
+        }
+        return true;
+      }
+    } catch (e) {
+      // ignore
+    }
+    return false;
+  }
+
+  // 构建带当前购物车参数的 H5 同步链接，方便在集换社 App 内置 WebView 打开时无缝带入所选卡牌
+  function buildSyncUrlWithCart() {
+    const baseUrl = window.location.protocol.startsWith('http')
+      ? `${window.location.origin}${window.location.pathname}`
+      : 'https://asmber.github.io/riftbound-card-shop/';
+    const params = new URLSearchParams();
+    params.set('jhs_auto', '1');
+    if (state.cart.size > 0) {
+      const pairs = [];
+      state.cart.forEach((qty, id) => {
+        if (qty > 0) pairs.push(`${id}:${qty}`);
+      });
+      if (pairs.length > 0) {
+        params.set('cart', pairs.join(','));
+      }
+    }
+    return `${baseUrl}?${params.toString()}`;
+  }
+
+  // 从 URL 查询参数 (?cart=OGN-001:3,ARC-002:2&jhs_auto=1) 自动恢复购物车并唤醒集换社弹窗
+  function restoreCartFromUrlParams() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const cartParam = params.get('cart');
+      const jhsAuto = params.get('jhs_auto');
+      let restoredCount = 0;
+
+      if (cartParam) {
+        const items = cartParam.split(',');
+        items.forEach(pair => {
+          const [rawId, rawQty] = pair.split(':');
+          const id = (rawId || '').trim().toUpperCase();
+          const qty = parseInt(rawQty || '1', 10);
+          if (CARD_MAP.has(id) && Number.isFinite(qty) && qty > 0) {
+            state.cart.set(id, Math.min(99, qty));
+            restoredCount++;
+          }
+        });
+        if (restoredCount > 0) {
+          saveCartToStorage();
+        }
+      }
+
+      if (jhsAuto === '1') {
+        // 清理地址栏参数避免刷新重复触发
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+        setTimeout(() => {
+          tryAutoExtractJhsAppToken();
+          openJhsHubModal('wishlist');
+        }, 180);
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
   function updateJhsTokenBadgeUI() {
-    const badge = document.getElementById('jhsTokenStatusBadge');
+    const btnText = document.getElementById('jhsAuthStatusBtnText');
+    const toggleBtn = document.getElementById('jhsToggleAuthBoxBtn');
     const input = document.getElementById('jhsTokenInput');
     if (input && jhsState.token && !input.value) {
       input.value = jhsState.token;
     }
-    if (!badge) return;
-    if (jhsState.token) {
-      badge.textContent = '✅ 已配置集换社 Token';
-      badge.style.background = 'rgba(34, 197, 94, 0.18)';
-      badge.style.color = '#86efac';
-      badge.style.border = '1px solid rgba(34, 197, 94, 0.45)';
-    } else {
-      badge.textContent = '未配置 Token（可免登录查价 / 导图 / 导文本）';
-      badge.style.background = 'rgba(255, 255, 255, 0.08)';
-      badge.style.color = 'var(--text-secondary)';
-      badge.style.border = '1px solid var(--border-subtle)';
+    if (btnText) {
+      if (jhsState.token) {
+        btnText.textContent = '✅ 已配置 Token (点击管理/复制)';
+        if (toggleBtn) {
+          toggleBtn.style.borderColor = 'rgba(34, 197, 94, 0.55)';
+          toggleBtn.style.color = '#86efac';
+        }
+      } else {
+        btnText.textContent = '免抓包获取 / 配置 Token';
+        if (toggleBtn) {
+          toggleBtn.style.borderColor = '';
+          toggleBtn.style.color = '';
+        }
+      }
     }
   }
 
@@ -2306,9 +2402,8 @@
 
   function renderJhsCartTable() {
     const entries = getCartEntriesSorted();
-    const kindsEl = document.getElementById('jhsBannerKinds');
-    const totalQtyEl = document.getElementById('jhsBannerTotalQty');
-    const totalPriceEl = document.getElementById('jhsBannerTotalPrice');
+    const summaryCardsEl = document.getElementById('jhsSummaryCardsText');
+    const totalPriceEl = document.getElementById('jhsSummaryTotalPrice');
     const tbody = document.getElementById('jhsCartTableTbody');
 
     const totalQty = entries.reduce((acc, e) => acc + e.qty, 0);
@@ -2320,16 +2415,15 @@
       if (p > 0) totalCost += p * qty;
     });
 
-    if (kindsEl) kindsEl.textContent = String(entries.length);
-    if (totalQtyEl) totalQtyEl.textContent = String(totalQty);
+    if (summaryCardsEl) summaryCardsEl.textContent = `${entries.length} 种 / ${totalQty} 张`;
     if (totalPriceEl) totalPriceEl.textContent = `¥${totalCost.toFixed(2)}`;
 
     if (!tbody) return;
     if (entries.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="6" style="text-align:center;padding:36px 12px;color:var(--text-secondary);">
-            购物车为空，请先在主界面选择卡牌加入购物车，或切换到「📥 心愿单链接导入」标签页导入
+          <td colspan="7" style="text-align:center;padding:36px 12px;color:var(--text-secondary);">
+            购物车为空，请先在主界面选择卡牌加入购物车，或切换到「🔗 3. 导入集换社心愿单链接」标签页导入
           </td>
         </tr>
       `;
@@ -2363,21 +2457,24 @@
         return `
           <tr data-hover-card="${card.id}">
             <td>
+              <img class="list-thumb" crossorigin="anonymous" src="${card.imgSmall}" alt="${escapeHtml(card.name)}" loading="lazy" />
+            </td>
+            <td>
               <div style="font-weight:700;color:var(--text-main);cursor:pointer;" data-action="detail" data-id="${card.id}">${escapeHtml(card.name)}</div>
               <div style="font-size:11px;color:var(--text-muted);font-family:Consolas,monospace;">${card.id} · ${formatDomains(card.domains)}</div>
             </td>
             <td>
-              <select class="select-ctrl jhs-version-select" data-card-id="${card.id}" style="width:100%;max-width:250px;font-size:12px;padding:4px 8px;">
+              <select class="filter-select jhs-version-select" data-card-id="${card.id}" style="width:100%;max-width:260px;font-size:12px;height:30px;padding:0 8px;">
                 ${optionsHtml}
               </select>
             </td>
-            <td style="text-align:center;font-weight:800;color:var(--gold-light);">×${qty}</td>
-            <td style="text-align:right;font-weight:700;color:#fdba74;">${priceStr}</td>
-            <td style="text-align:right;font-weight:800;color:#fb923c;">${subStr}</td>
-            <td style="text-align:center;">
+            <td style="font-weight:700;color:#fdba74;">${priceStr}</td>
+            <td style="font-weight:800;color:var(--gold-light);">×${qty}</td>
+            <td style="font-weight:800;color:#fb923c;">${subStr}</td>
+            <td>
               ${
                 deepLinkUrl
-                  ? `<a class="btn btn-sm btn-jhs" href="${deepLinkUrl}" style="text-decoration:none;padding:4px 8px;font-size:11px;" title="在集换社 App 中直接打开该卡牌详情与在售列表">📱 跳App</a>`
+                  ? `<a class="btn btn-jhs" href="${deepLinkUrl}" style="text-decoration:none;height:28px;padding:0 10px;font-size:11.5px;" title="在集换社 App 中直接打开该卡牌详情与在售列表">📱 跳 App 买此卡</a>`
                   : `<span style="font-size:11px;color:var(--text-muted);">-</span>`
               }
             </td>
@@ -2389,6 +2486,7 @@
 
   async function openJhsHubModal(defaultTab) {
     hideHoverPreview();
+    tryAutoExtractJhsAppToken();
     if (defaultTab) {
       switchJhsHubTab(defaultTab);
     }
@@ -2414,9 +2512,9 @@
       btn.classList.toggle('active', btn.dataset.jhsTab === tabName);
     });
     const panes = {
-      wishlist: document.getElementById('jhsTabWishlist'),
-      shop: document.getElementById('jhsTabShop'),
-      import: document.getElementById('jhsTabImport')
+      wishlist: document.getElementById('jhsTabPanel_wishlist'),
+      shop: document.getElementById('jhsTabPanel_shop'),
+      import: document.getElementById('jhsTabPanel_import')
     };
     Object.entries(panes).forEach(([k, el]) => {
       if (el) el.style.display = k === tabName ? 'block' : 'none';
@@ -2431,6 +2529,8 @@
       return;
     }
 
+    tryAutoExtractJhsAppToken();
+
     const tokenInputVal = document.getElementById('jhsTokenInput')?.value.trim();
     if (tokenInputVal) {
       jhsState.token = tokenInputVal.replace(/^Bearer\s+/i, '').trim();
@@ -2444,14 +2544,15 @@
         authBox.style.display = 'block';
         authBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
-      showToast('🔑 请先在上方展开框内粘贴集换社 Token 或使用手机验证码登录；也可直接使用右侧免登录「AI 拍照识卡纯净图」');
+      showToast('🔑 请点击上方「📱 一键在集换社 App 内打开本页」免抓包自动读取 Token，或粘贴已复制的 Token');
       return;
     }
 
     const progressEl = document.getElementById('jhsCreateWishProgress');
-    const createBtn = document.getElementById('jhsCreateWishlistBtn');
+    const createBtn = document.getElementById('jhsCreateWishListBtn');
     const resultBox = document.getElementById('jhsCreatedWishResultBox');
     if (resultBox) resultBox.style.display = 'none';
+    if (progressEl) progressEl.style.display = 'block';
 
     try {
       if (createBtn) createBtn.disabled = true;
@@ -2474,7 +2575,7 @@
       }
 
       const targetSelectVal = document.getElementById('jhsTargetWishlistSelect')?.value || 'new';
-      const wishName = document.getElementById('jhsWishlistNameInput')?.value.trim() || `《符文战场》选购单_${new Date().toLocaleDateString('zh-CN')}`;
+      const wishName = document.getElementById('jhsNewWishListNameInput')?.value.trim() || `《符文战场》选购单_${new Date().toLocaleDateString('zh-CN')}`;
       const ignoreVersion = document.getElementById('jhsIgnoreVersionCheck')?.checked ? 1 : 0;
 
       let wishListId = targetSelectVal !== 'new' ? targetSelectVal : null;
@@ -2497,7 +2598,7 @@
 
         const createJson = await createResp.json().catch(() => ({}));
         if (!createResp.ok || createJson.code === 401 || createJson.message?.includes('登录')) {
-          throw new Error(createJson.message || createJson.msg || `创建心愿单失败 (HTTP ${createResp.status})，请检查 Token 是否有效`);
+          throw new Error(createJson.message || createJson.msg || `创建心愿单失败 (HTTP ${createResp.status})，请检查 Token 是否过期`);
         }
         wishListId =
           createJson?.wish_list_id ||
@@ -2549,8 +2650,8 @@
       const qrImgUrl = `${JHS_API_BASE}/share/wish-list-qrcode?game_key=lol&game_sub_key=default&wish_list_id=${wishListId}&width=240`;
 
       const titleEl = document.getElementById('jhsCreatedWishTitle');
-      const appLinkEl = document.getElementById('jhsOpenCreatedWishAppLink');
-      const webLinkEl = document.getElementById('jhsOpenCreatedWishWebLink');
+      const appLinkEl = document.getElementById('jhsOpenCreatedWishAppBtn');
+      const webLinkEl = document.getElementById('jhsOpenCreatedWishWebBtn');
       const qrImgEl = document.getElementById('jhsCreatedWishQrImg');
       const copyUrlBtn = document.getElementById('jhsCopyCreatedWishUrlBtn');
 
@@ -2560,12 +2661,12 @@
       if (qrImgEl) qrImgEl.src = qrImgUrl;
       if (copyUrlBtn) {
         copyUrlBtn.onclick = async () => {
-          await navigator.clipboard.writeText(webShareLink);
+          await copyTextSafe(webShareLink);
           showToast('📋 心愿单分享链接已复制到剪贴板！');
         };
       }
       if (resultBox) resultBox.style.display = 'block';
-      showToast('🎉 集换社心愿单创建成功！可直接点击「在集换社 App 打开」去一键配单');
+      showToast('🎉 集换社心愿单创建成功！可直接点击「一键唤起集换社 App 打开该心愿单」去配单');
     } catch (err) {
       if (progressEl) progressEl.textContent = `❌ ${err.message || '同步失败'}`;
       showToast(`⚠️ ${err.message || '集换社心愿单创建失败'}`);
@@ -2576,7 +2677,7 @@
 
   // 解析集换社卖家店铺链接，并与当前购物车做 1v1 库存及价格比对
   async function scanJhsSellerStore() {
-    const rawInput = document.getElementById('jhsSellerUrlInput')?.value.trim() || '';
+    const rawInput = document.getElementById('jhsShopUrlInput')?.value.trim() || '';
     if (!rawInput) {
       showToast('请先粘贴集换社卖家店铺分享链接或卖家 userId');
       return;
@@ -2591,7 +2692,7 @@
     }
 
     const userId = uidMatch[1];
-    const resultBox = document.getElementById('jhsShopMatchResultBox');
+    const resultBox = document.getElementById('jhsShopResultContainer');
     if (resultBox) {
       resultBox.innerHTML = `<div style="text-align:center;padding:30px;color:#fdba74;">⏳ 正在扫描集换社卖家 (#${userId}) 的《符文战场》在售库存并与购物车进行 1v1 比对...</div>`;
     }
@@ -2682,17 +2783,17 @@
             </div>
           </div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-            <div class="jhs-stat-box">
-              <div class="val">¥${totalSellerCost.toFixed(2)}</div>
-              <div class="lbl">该店可配齐部分合计</div>
+            <div style="text-align:right;margin-right:6px;">
+              <div style="font-size:18px;font-weight:900;color:#fb923c;">¥${totalSellerCost.toFixed(2)}</div>
+              <div style="font-size:11px;color:var(--text-secondary);">该店可配齐部分合计</div>
             </div>
             <a class="btn btn-jhs" href="${appShopDeepLink}" style="text-decoration:none;">📱 在集换社 App 打开该店选购</a>
-            <a class="btn btn-sm" href="${shareUrl}" target="_blank" rel="noopener" style="text-decoration:none;">🌐 网页查看店铺</a>
+            <a class="btn" href="${shareUrl}" target="_blank" rel="noopener" style="text-decoration:none;">🌐 网页查看店铺</a>
           </div>
         </div>
 
-        <div class="export-table-preview-box" style="max-height:280px;">
-          <table class="export-preview-table">
+        <div class="rift-list-table-wrap" style="max-height:280px;overflow-y:auto;">
+          <table class="rift-list-table">
             <thead>
               <tr>
                 <th>状态</th>
@@ -2763,7 +2864,7 @@
     }
 
     const wishListId = idMatch[1];
-    const shouldReplace = replaceMode !== null ? replaceMode : Boolean(document.getElementById('jhsImportReplaceCheck')?.checked);
+    const shouldReplace = replaceMode !== null ? replaceMode : Boolean(document.getElementById('jhsImportWishReplaceCheck')?.checked);
     const statusBox = document.getElementById('jhsImportWishStatusBox');
     if (statusBox) {
       statusBox.textContent = `⏳ 正在从集换社读取心愿单 (#${wishListId}) 卡牌列表...`;
@@ -2836,6 +2937,11 @@
   function init() {
     loadCartFromStorage();
     loadJhsCacheFromSession();
+    restoreCartFromUrlParams();
+    tryAutoExtractJhsAppToken();
+    // 兼容 Android / iOS WebView 延迟注入 window.jhsapp 的情况
+    setTimeout(tryAutoExtractJhsAppToken, 500);
+    setTimeout(tryAutoExtractJhsAppToken, 1500);
 
     // 初始化系列下拉框（主工具栏 + 导出弹窗工具栏）
     const setSelect = document.getElementById('setSelect');
@@ -3136,7 +3242,6 @@
       'boardColsSelect',
       'boardShowCaptionCheck',
       'boardShowJhsPriceCheck',
-      'boardJhsAiCleanModeCheck',
       'boardFilterDomain',
       'boardFilterType',
       'boardFilterRarity'
@@ -3436,6 +3541,45 @@
       }
     });
 
+    // 免抓包：一键在集换社 App 内置 WebView 打开本页（自动带入购物车并触发 window.jhsapp.getToken()）
+    document.getElementById('jhsLaunchAppWebviewBtn')?.addEventListener('click', async () => {
+      const syncUrl = buildSyncUrlWithCart();
+      await copyTextSafe(syncUrl);
+      const schemeUrl = `jihuanshe://www.jihuanshe.com/app/customWebView?showNav=1&url=${encodeURIComponent(syncUrl)}`;
+      showToast('🚀 正在唤起集换社 App 内置页（已同步复制链接备用）...');
+      window.location.href = schemeUrl;
+    });
+
+    // 免抓包：复制带购物车的同步链接（可发送到集换社私信/评论内点击打开）
+    document.getElementById('jhsCopySyncPageUrlBtn')?.addEventListener('click', async () => {
+      const syncUrl = buildSyncUrlWithCart();
+      const ok = await copyTextSafe(syncUrl);
+      if (ok) {
+        showToast('🔗 已复制带购物车的专属链接！发到集换社 App 私信/评论中点击打开即可自动提取 Token');
+      } else {
+        showToast('⚠️ 复制失败，请手动复制浏览器地址栏链接');
+      }
+    });
+
+    // 一键复制当前提取到的或已保存的集换社 Token（供发给电脑端使用）
+    const handleCopyCurrentToken = async () => {
+      tryAutoExtractJhsAppToken();
+      const tok = jhsState.token || document.getElementById('jhsTokenInput')?.value.trim() || '';
+      const clean = tok.replace(/^Bearer\s+/i, '').trim();
+      if (!clean) {
+        showToast('⚠️ 当前尚未获取到集换社 Token，请先在集换社 App 内打开本页或粘贴 Token');
+        return;
+      }
+      const ok = await copyTextSafe(clean);
+      if (ok) {
+        showToast('📋 已复制您的集换社 Bearer Token！可直接发到电脑端粘贴使用');
+      } else {
+        showToast('⚠️ 复制失败，请展开输入框手动全选复制');
+      }
+    };
+    document.getElementById('jhsCopyInAppTokenBtn')?.addEventListener('click', handleCopyCurrentToken);
+    document.getElementById('jhsCopySavedTokenBtn')?.addEventListener('click', handleCopyCurrentToken);
+
     document.getElementById('jhsSaveTokenBtn')?.addEventListener('click', () => {
       const val = document.getElementById('jhsTokenInput')?.value.trim() || '';
       const cleanToken = val.replace(/^Bearer\s+/i, '').trim();
@@ -3455,78 +3599,17 @@
       localStorage.removeItem(JHS_TOKEN_STORAGE_KEY);
       const input = document.getElementById('jhsTokenInput');
       if (input) input.value = '';
+      const banner = document.getElementById('jhsInAppAutoBanner');
+      if (banner) banner.style.display = 'none';
       updateJhsTokenBadgeUI();
       showToast('🗑️ 已清除保存的集换社 Token');
     });
 
-    // 集换社手机验证码快捷登录获取 Token
-    document.getElementById('jhsSendSmsBtn')?.addEventListener('click', async () => {
-      const phone = document.getElementById('jhsPhoneInput')?.value.trim() || '';
-      if (!/^1\d{10}$/.test(phone)) {
-        showToast('请输入有效的 11 位中国大陆手机号');
-        return;
-      }
-      try {
-        const resp = await fetch(`${JHS_API_BASE}/auth/send-sms`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ phone, area_code: '86', type: 'login' })
-        });
-        const json = await resp.json().catch(() => ({}));
-        if (!resp.ok) {
-          throw new Error(json.message || json.msg || '验证码发送失败，建议直接复制网页端 Token');
-        }
-        showToast('📲 验证码已发送，请查收短信');
-      } catch (err) {
-        showToast(`⚠️ ${err.message}`);
-      }
-    });
-
-    document.getElementById('jhsSmsLoginBtn')?.addEventListener('click', async () => {
-      const phone = document.getElementById('jhsPhoneInput')?.value.trim() || '';
-      const code = document.getElementById('jhsSmsCodeInput')?.value.trim() || '';
-      if (!phone || !code) {
-        showToast('请填写手机号和短信验证码');
-        return;
-      }
-      try {
-        const resp = await fetch(`${JHS_API_BASE}/auth/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ phone, area_code: '86', verify_code: code, code })
-        });
-        const json = await resp.json().catch(() => ({}));
-        const token = json?.token || json?.access_token || json?.data?.token || json?.data?.access_token;
-        if (!resp.ok || !token) {
-          throw new Error(json.message || json.msg || '验证码登录失败，请检查验证码或直接粘贴 Token');
-        }
-        jhsState.token = token;
-        localStorage.setItem(JHS_TOKEN_STORAGE_KEY, token);
-        const input = document.getElementById('jhsTokenInput');
-        if (input) input.value = token;
-        updateJhsTokenBadgeUI();
-        fetchUserJhsWishlists();
-        showToast('🎉 登录成功！已自动获取并保存集换社 Token');
-      } catch (err) {
-        showToast(`⚠️ ${err.message}`);
-      }
-    });
-
     // 一键创建并同步心愿单按钮
-    document.getElementById('jhsCreateWishlistBtn')?.addEventListener('click', createJhsWishlistFromCart);
-
-    // 快捷跳转：生成集换社 AI 识卡无遮挡纯净图
-    document.getElementById('jhsQuickAiBoardBtn')?.addEventListener('click', () => {
-      document.getElementById('jhsHubModal').classList.remove('open');
-      const aiChk = document.getElementById('boardJhsAiCleanModeCheck');
-      if (aiChk) aiChk.checked = true;
-      renderVisualPreviewBoard();
-      document.getElementById('previewBoardModal').classList.add('open');
-      showToast('🤖 已开启「集换社 AI 识卡纯净图」模式，点击上方「下载高清截图」即可保存相册识卡！');
-    });
+    document.getElementById('jhsCreateWishListBtn')?.addEventListener('click', createJhsWishlistFromCart);
 
     // 快捷复制：集换社配单文本
-    document.getElementById('jhsQuickCopyTextBtn')?.addEventListener('click', async () => {
+    document.getElementById('jhsQuickExportTextBtn')?.addEventListener('click', async () => {
       if (state.cart.size === 0) {
         showToast('购物车为空，请先选择卡牌');
         return;
@@ -3537,13 +3620,13 @@
       if (formatSel) formatSel.value = 'jhs_wishlist';
       const txt = buildTextTableString();
       if (formatSel) formatSel.value = prevFormat;
-      await navigator.clipboard.writeText(txt);
+      await copyTextSafe(txt);
       showToast('📋 已复制集换社心愿单配卡与底价清单到剪贴板！');
     });
 
     // 卖家店铺 1v1 齐卡扫描与心愿单链接导入
-    document.getElementById('jhsScanSellerBtn')?.addEventListener('click', scanJhsSellerStore);
-    document.getElementById('jhsImportWishUrlBtn')?.addEventListener('click', () => importFromJhsWishUrl());
+    document.getElementById('jhsScanShopBtn')?.addEventListener('click', scanJhsSellerStore);
+    document.getElementById('jhsConfirmImportWishUrlBtn')?.addEventListener('click', () => importFromJhsWishUrl());
 
     // 初始渲染
     updateCartUI();
