@@ -522,6 +522,7 @@
                 <span class="card-qty-badge" style="display:${qty > 0 ? 'block' : 'none'};">×${qty}</span>
                 <img
                   class="${card.type === 'Battlefield' ? 'battlefield-rot-img' : ''}"
+                  crossorigin="anonymous"
                   src="${card.imgSmall}"
                   data-fallback="${card.imgFallbackSmall}"
                   alt="${card.name} (${card.id})"
@@ -936,6 +937,31 @@
     }));
   }
 
+  // 在「集换社 AI 拍照识卡纯净拼图」模式下，自动将多张卡牌按购买数量 (如 ×3) 1:1 平铺展开为独立卡面，
+  // 这样集换社 App 相册识卡扫描一次即可自动识别出准确的购买张数（无需手动改数量），同时卡框下方清晰标注总张数与第几张
+  function expandSectionsForAiMode(sections, aiCleanMode) {
+    if (!aiCleanMode) return sections;
+    return sections.map(sec => {
+      const expandedEntries = [];
+      for (const item of sec.entries) {
+        const repeatCount = Math.min(Math.max(1, item.qty), 12);
+        for (let i = 0; i < repeatCount; i++) {
+          expandedEntries.push({
+            card: item.card,
+            qty: item.qty,
+            copyIndex: i + 1,
+            totalCopies: item.qty,
+            isAiExpanded: true
+          });
+        }
+      }
+      return {
+        title: sec.title,
+        entries: expandedEntries
+      };
+    });
+  }
+
   function renderVisualPreviewBoard() {
     const container = document.getElementById('visualBoardContainer');
     const entries = getFilteredBoardEntries();
@@ -943,7 +969,7 @@
     const groupBy = document.getElementById('boardGroupSelect').value;
     const cols = parseInt(document.getElementById('boardColsSelect').value, 10) || 6;
     const aiCleanMode = Boolean(document.getElementById('boardJhsAiCleanModeCheck')?.checked);
-    const showCaption = !aiCleanMode && Boolean(document.getElementById('boardShowCaptionCheck')?.checked);
+    const showCaption = Boolean(document.getElementById('boardShowCaptionCheck')?.checked);
     const showJhsPrice = !aiCleanMode && Boolean(document.getElementById('boardShowJhsPriceCheck')?.checked);
 
     if (showJhsPrice && entries.some(({ card }) => !jhsVersionsCache.has(card.id)) && !jhsState.isFetchingCartPrices) {
@@ -976,7 +1002,8 @@
         if (p > 0) totalJhsCost += p * qty;
       });
     }
-    const sections = getGroupedCartSections(groupBy, entries);
+    const rawSections = getGroupedCartSections(groupBy, entries);
+    const sections = expandSectionsForAiMode(rawSections, aiCleanMode);
     const dateStr = new Date().toLocaleDateString('zh-CN');
 
     container.innerHTML = `
@@ -985,7 +1012,7 @@
           <div class="board-banner-title">${escapeHtml(title)}</div>
           <div class="board-banner-sub">${
             aiCleanMode
-              ? '🤖 集换社 App「AI 拍照识卡」纯净拼图模式 · 已隐藏角标遮挡，导出图片后可在集换社心愿单直接相册识卡导入'
+              ? `🤖 集换社 App「AI 拍照识卡」纯净拼图模式 · 已按购买张数 (${totalQty}张) 1:1 平铺展开且去除卡面遮挡，集换社相册识卡可直接识别对应数量！`
               : `RiftAtlas《符文战场》选购预览看板 · 生成日期 ${dateStr} · 鼠标悬停卡牌可高清放大预览`
           }</div>
         </div>
@@ -997,17 +1024,17 @@
       </div>
 
       ${sections.map(sec => {
-        const secTotal = sec.entries.reduce((s, e) => s + e.qty, 0);
+        const secTotal = sec.entries.length;
         return `
           <div class="board-group-section">
             ${groupBy !== 'none' && !aiCleanMode ? `
               <div class="board-group-header">
                 <span>◆ ${escapeHtml(sec.title)}</span>
-                <span class="count">${secTotal} 张 (${sec.entries.length} 种)</span>
+                <span class="count">${sec.entries.reduce((s, e) => s + e.qty, 0)} 张 (${sec.entries.length} 种)</span>
               </div>
             ` : ''}
             <div class="board-cards-grid">
-              ${sec.entries.map(({ card, qty }) => {
+              ${sec.entries.map(({ card, qty, copyIndex, isAiExpanded }) => {
                 const jhsVer = showJhsPrice ? getSelectedJhsVersion(card) : null;
                 const jhsMinP = parseFloat(jhsVer?.min_price);
                 return `
@@ -1015,6 +1042,7 @@
                   <div class="art-wrap" data-action="detail" data-id="${card.id}">
                     <img
                       class="${card.type === 'Battlefield' ? 'battlefield-rot-img' : ''}"
+                      crossorigin="anonymous"
                       src="${card.imgSmall}"
                       data-fallback="${card.imgFallbackSmall}"
                       alt="${escapeHtml(card.name)}"
@@ -1025,8 +1053,15 @@
                   </div>
                   ${showCaption ? `
                     <div class="board-card-caption">
-                      <div class="nm" title="${escapeHtml(card.name)}">${escapeHtml(card.name)}</div>
-                      <div class="cid">${card.id}${showJhsPrice && jhsMinP > 0 ? ` · ¥${(jhsMinP * qty).toFixed(2)}` : ''}</div>
+                      <div class="nm" title="${escapeHtml(card.name)}">
+                        ${escapeHtml(card.name)}
+                        ${isAiExpanded ? `<strong style="color:var(--gold-light);margin-left:3px;">×${qty}</strong>` : ''}
+                      </div>
+                      <div class="cid">${
+                        isAiExpanded
+                          ? `${card.id} · 第 ${copyIndex}/${qty} 张`
+                          : `${card.id}${showJhsPrice && jhsMinP > 0 ? ` · ¥${(jhsMinP * qty).toFixed(2)}` : ''}`
+                      }</div>
                     </div>
                   ` : ''}
                 </div>
@@ -1047,28 +1082,85 @@
       .replace(/"/g, '&quot;');
   }
 
-  // 加载单张图片用于 Canvas 绘制 (支持 CORS 与英文回退，附加 cors=1 规避浏览器非 CORS 缓存冲突)
-  function loadCardImageForCanvas(card) {
-    const withCorsParam = url => {
-      if (!url) return url;
-      return url + (url.includes('?') ? '&cors=1' : '?cors=1');
+  // 加载单张图片用于 Canvas 绘制
+  // 注意：assets.riftatlas-workers.com 对未知查询参数 (如 ?cors=1) 会返回 403 Forbidden，
+  // 因此严禁修改原 URL 查询串，统一通过 fetch(url, { mode: 'cors', cache: 'no-cache' }) -> Blob -> ObjectURL 加载，
+  // 彻底解决浏览器非 CORS 缓存冲突与 Canvas 跨域污染问题。
+  const canvasImageCache = new Map();
+
+  async function loadCardImageForCanvas(card) {
+    if (!card) return null;
+    if (canvasImageCache.has(card.id)) {
+      return canvasImageCache.get(card.id);
+    }
+
+    const loadViaFetchBlob = async url => {
+      if (!url) return null;
+      try {
+        let resp = await fetch(url, { mode: 'cors' });
+        if (!resp.ok) {
+          resp = await fetch(url, { mode: 'cors', cache: 'no-cache' });
+        }
+        if (!resp.ok) return null;
+        const blob = await resp.blob();
+        const objUrl = URL.createObjectURL(blob);
+        return await new Promise(resolve => {
+          const img = new Image();
+          img.onload = () => {
+            URL.revokeObjectURL(objUrl);
+            resolve(img);
+          };
+          img.onerror = () => {
+            URL.revokeObjectURL(objUrl);
+            resolve(null);
+          };
+          img.src = objUrl;
+        });
+      } catch (err) {
+        try {
+          const resp2 = await fetch(url, { mode: 'cors', cache: 'reload' });
+          if (!resp2.ok) return null;
+          const blob2 = await resp2.blob();
+          const objUrl2 = URL.createObjectURL(blob2);
+          return await new Promise(resolve => {
+            const img = new Image();
+            img.onload = () => {
+              URL.revokeObjectURL(objUrl2);
+              resolve(img);
+            };
+            img.onerror = () => {
+              URL.revokeObjectURL(objUrl2);
+              resolve(null);
+            };
+            img.src = objUrl2;
+          });
+        } catch (err2) {
+          return null;
+        }
+      }
     };
-    return new Promise(resolve => {
-      const tryLoad = (url, fallbackUrl) => {
+
+    const loadViaDirectImg = url => {
+      if (!url) return Promise.resolve(null);
+      return new Promise(resolve => {
         const img = new Image();
         img.crossOrigin = 'anonymous';
         img.onload = () => resolve(img);
-        img.onerror = () => {
-          if (fallbackUrl && fallbackUrl !== url) {
-            tryLoad(fallbackUrl, null);
-          } else {
-            resolve(null);
-          }
-        };
-        img.src = withCorsParam(url);
-      };
-      tryLoad(card.imgSmall, card.imgFallbackSmall);
-    });
+        img.onerror = () => resolve(null);
+        img.src = url;
+      });
+    };
+
+    let loadedImg =
+      (await loadViaFetchBlob(card.imgSmall)) ||
+      (await loadViaFetchBlob(card.imgFallbackSmall)) ||
+      (await loadViaDirectImg(card.imgSmall)) ||
+      (await loadViaDirectImg(card.imgFallbackSmall));
+
+    if (loadedImg) {
+      canvasImageCache.set(card.id, loadedImg);
+    }
+    return loadedImg;
   }
 
   function drawRoundedRect(ctx, x, y, w, h, r) {
@@ -1097,9 +1189,10 @@
     const groupBy = document.getElementById('boardGroupSelect').value;
     const cols = parseInt(document.getElementById('boardColsSelect').value, 10) || 6;
     const aiCleanMode = Boolean(document.getElementById('boardJhsAiCleanModeCheck')?.checked);
-    const showCaption = !aiCleanMode && Boolean(document.getElementById('boardShowCaptionCheck')?.checked);
+    const showCaption = Boolean(document.getElementById('boardShowCaptionCheck')?.checked);
     const showJhsPrice = !aiCleanMode && Boolean(document.getElementById('boardShowJhsPriceCheck')?.checked);
-    const sections = getGroupedCartSections(groupBy, entries);
+    const rawSections = getGroupedCartSections(groupBy, entries);
+    const sections = expandSectionsForAiMode(rawSections, aiCleanMode);
 
     if (showJhsPrice) {
       await ensureCartJhsPricesLoaded(false);
@@ -1179,7 +1272,7 @@
     ctx.font = '13px "Microsoft YaHei", "PingFang SC", sans-serif';
     ctx.fillText(
       aiCleanMode
-        ? `集换社 App「AI 拍照识卡」纯净拼图 · 导出日期 ${dateStr}`
+        ? `集换社 App「AI 拍照识卡」纯净拼图（已按张数 1:1 展开共 ${totalQty} 张） · 导出日期 ${dateStr}`
         : `《符文战场》卡牌选购预览清单 · 导出日期 ${dateStr}`,
       padX,
       padY + 56
@@ -1222,7 +1315,7 @@
         curY += groupTitleH;
       }
 
-      sec.entries.forEach(({ card, qty }, index) => {
+      sec.entries.forEach(({ card, qty, copyIndex, isAiExpanded }, index) => {
         const col = index % cols;
         const row = Math.floor(index / cols);
         const x = padX + col * (cardW + gapX);
@@ -1262,7 +1355,7 @@
         }
         ctx.restore();
 
-        // 右上角数量角标 (×N) - AI 纯净识卡模式下不遮挡卡面
+        // 右上角数量角标 (×N) - AI 纯净识卡模式下不遮挡卡面图案，改为平铺展开+卡框外底部标注数量
         if (!aiCleanMode) {
           const badgeText = `×${qty}`;
           ctx.font = 'bold 16px "Segoe UI", "Microsoft YaHei", sans-serif';
@@ -1318,7 +1411,7 @@
           }
         }
 
-        // 底部卡名与编号标签
+        // 底部卡名与编号标签（位于卡面下方外部，不遮挡卡图，AI 模式下清晰显示 ×数量 与 第几张）
         if (showCaption) {
           const capY = y + cardH;
           ctx.fillStyle = '#0f172a';
@@ -1328,18 +1421,23 @@
           ctx.fillStyle = '#f8fafc';
           ctx.font = 'bold 12.5px "Microsoft YaHei", "PingFang SC", sans-serif';
           ctx.textAlign = 'center';
-          let displayName = card.name;
+          const nameWithQty = isAiExpanded ? `${card.name} ×${qty}` : card.name;
+          let displayName = nameWithQty;
           while (displayName.length > 1 && ctx.measureText(displayName).width > cardW - 14) {
             displayName = displayName.slice(0, -1);
           }
-          if (displayName !== card.name) displayName += '…';
+          if (displayName !== nameWithQty) displayName += '…';
           ctx.fillText(displayName, x + cardW / 2, capY + 17);
 
           const jhsVer = showJhsPrice ? getSelectedJhsVersion(card) : null;
           const minP = parseFloat(jhsVer?.min_price);
-          const subText = showJhsPrice && minP > 0 ? `${card.id} · ¥${(minP * qty).toFixed(2)}` : card.id;
-          ctx.fillStyle = '#94a3b8';
-          ctx.font = '11px Consolas, monospace';
+          const subText = isAiExpanded
+            ? `${card.id} · 第 ${copyIndex}/${qty} 张`
+            : showJhsPrice && minP > 0
+            ? `${card.id} · ¥${(minP * qty).toFixed(2)}`
+            : card.id;
+          ctx.fillStyle = isAiExpanded ? '#fde047' : '#94a3b8';
+          ctx.font = '11px Consolas, "Microsoft YaHei", monospace';
           ctx.fillText(subText, x + cardW / 2, capY + 34);
           ctx.textAlign = 'left';
         }
