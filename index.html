@@ -45,6 +45,9 @@
       <button type="button" id="mobileFilterToggleBtn" class="btn mobile-only-btn" title="展开/收起筛选面板">
         🌪️ 筛选 <span id="mobileFilterBadge" class="cart-badge-pill" style="display:none;">0</span>
       </button>
+      <button type="button" id="openJhsModalBtn" class="btn btn-jhs" title="集换社 App 深度联动：一键构建集换社新心愿单、查全网最低价、卖家店铺库存比对">
+        ⚡ <span class="btn-label-text">集换社联动</span>
+      </button>
       <button type="button" id="openImportModalBtn" class="btn" title="通过粘贴文本或拖入CSV批量导入卡牌到购物车">
         📥 <span class="btn-label-text">导入卡表</span>
       </button>
@@ -271,7 +274,10 @@
 
       <!-- 底部导出操作区 -->
       <div class="cart-footer">
-        <button type="button" id="cartOpenPreviewBtn" class="btn btn-gold" style="width:100%;height:40px;font-size:14px;">
+        <button type="button" id="cartOpenJhsBtn" class="btn btn-jhs" style="width:100%;height:38px;font-size:13.5px;">
+          ⚡ 集换社联动 (一键建心愿单 / 实时最低价)
+        </button>
+        <button type="button" id="cartOpenPreviewBtn" class="btn btn-gold" style="width:100%;height:38px;font-size:13.5px;">
           🖼️ 生成卡牌预览截图 / 看板
         </button>
         <div class="cart-footer-grid">
@@ -348,6 +354,14 @@
 
           <label style="font-size:12.5px;display:inline-flex;align-items:center;gap:5px;cursor:pointer;">
             <input type="checkbox" id="boardShowCaptionCheck" checked /> 显示底部卡名与编号
+          </label>
+
+          <label style="font-size:12.5px;display:inline-flex;align-items:center;gap:5px;cursor:pointer;color:var(--gold-light);font-weight:600;" title="显示每张卡在集换社的全版本最低价与整单预估总价">
+            <input type="checkbox" id="boardShowJhsPriceCheck" /> 💰 显示集换社最低价
+          </label>
+
+          <label style="font-size:12.5px;display:inline-flex;align-items:center;gap:5px;cursor:pointer;color:#38bdf8;font-weight:600;" title="去除角标与文字遮挡，生成适合集换社 App「AI 拍照识卡 -> 相册选图」批量识别加入心愿单的纯净卡图">
+            <input type="checkbox" id="boardJhsAiCleanModeCheck" /> 📸 集换社 AI 识卡纯净拼图模式
           </label>
 
           <div class="toolbar-spacer"></div>
@@ -528,10 +542,23 @@
           <label class="toggle-pill export-col-pill" style="height:28px;">
             <input type="checkbox" class="export-col-check" value="set" /> 所属系列
           </label>
+          <label class="toggle-pill export-col-pill" style="height:28px;border-color:rgba(249,115,22,0.5);">
+            <input type="checkbox" class="export-col-check" value="jhsNumber" /> ⚡集换社卡编
+          </label>
+          <label class="toggle-pill export-col-pill" style="height:28px;border-color:rgba(249,115,22,0.5);">
+            <input type="checkbox" class="export-col-check" value="jhsRarity" /> ⚡集换社版本
+          </label>
+          <label class="toggle-pill export-col-pill" style="height:28px;border-color:rgba(249,115,22,0.5);">
+            <input type="checkbox" class="export-col-check" value="jhsPrice" /> ⚡集换社最低价(¥)
+          </label>
+          <label class="toggle-pill export-col-pill" style="height:28px;border-color:rgba(249,115,22,0.5);">
+            <input type="checkbox" class="export-col-check" value="jhsSubtotal" /> ⚡小计金额(¥)
+          </label>
 
-          <div style="display:inline-flex;gap:4px;margin-left:auto;">
+          <div style="display:inline-flex;gap:4px;margin-left:auto;flex-wrap:wrap;">
             <button type="button" id="presetMinimalColsBtn" class="btn" style="height:28px;font-size:11.5px;padding:0 8px;">仅名称+数量</button>
             <button type="button" id="presetStandardColsBtn" class="btn" style="height:28px;font-size:11.5px;padding:0 8px;">含颜色/稀有度/类型</button>
+            <button type="button" id="presetJhsColsBtn" class="btn btn-jhs" style="height:28px;font-size:11.5px;padding:0 8px;">⚡ 集换社心愿单模式</button>
             <button type="button" id="presetAllColsBtn" class="btn" style="height:28px;font-size:11.5px;padding:0 8px;">全选字段</button>
           </div>
         </div>
@@ -540,7 +567,8 @@
         <div style="display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding-top:8px;border-top:1px dashed var(--border-subtle);">
           <span style="font-size:12px;color:var(--gold-light);font-weight:700;">③ 文本排版格式：</span>
           <select id="textFormatSelect" class="filter-select">
-            <option value="aligned">对齐纯文本表格 (带竖线分隔)</option>
+            <option value="jhs_wishlist">⚡ 集换社心愿单格式 (集换社卡编 + 卡名 + 最低价版本 + 数量 + 参考价)</option>
+            <option value="aligned" selected>对齐纯文本表格 (带竖线分隔)</option>
             <option value="tsv">Excel / 飞书直接粘贴格式 (TSV 制表符分隔)</option>
             <option value="markdown">Markdown 表格 (| 字段 | ... |)</option>
             <option value="simple">极简购卡列表 (卡牌名称 x数量)</option>
@@ -674,6 +702,238 @@
     </div>
   </div>
 
+  <!-- 弹窗 6：集换社 App 深度联动中心（直接构建新心愿单 / 实时全版本最低价 / 卖家店铺配单比对 / 心愿单分享链接导入） -->
+  <div id="jhsHubModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="jhsHubModalTitle">
+    <div class="modal-panel" style="max-width:1100px;">
+      <div class="modal-header">
+        <h3 id="jhsHubModalTitle">
+          ⚡ 集换社 App 深度联动中心
+          <span class="brand-badge" style="background:rgba(249,115,22,0.2);color:#fdba74;border-color:#f97316;">符文战场 (lol) 实时接口直连</span>
+        </h3>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+          <button type="button" id="jhsRefreshPricesBtn" class="btn" style="height:34px;padding:0 10px;font-size:12px;">
+            🔄 刷新实时集换价
+          </button>
+          <button type="button" class="btn" style="height:34px;padding:0 10px;" data-close-modal="jhsHubModal">✕ 关闭</button>
+        </div>
+      </div>
+
+      <!-- 顶部行情汇总与功能 Tab 切换栏 -->
+      <div class="modal-toolbar" style="flex-direction:column;align-items:stretch;gap:10px;">
+        <div class="jhs-summary-banner">
+          <div class="jhs-summary-left">
+            <div style="font-size:13px;font-weight:700;color:var(--text-main);">
+              🛒 当前购物车：<span id="jhsSummaryCardsText" style="color:var(--gold-light);">0 种 / 0 张</span>
+              <span style="margin:0 8px;color:var(--text-muted);">|</span>
+              <span id="jhsMatchStatusText" style="font-size:12px;color:#38bdf8;">准备就绪（自动取各编号下全版本最低在售价）</span>
+            </div>
+          </div>
+          <div class="jhs-summary-right">
+            <span style="font-size:12px;color:var(--text-secondary);">集换社最低价预估总计：</span>
+            <strong id="jhsSummaryTotalPrice" style="font-size:20px;font-weight:900;color:#fb923c;">¥0.00</strong>
+          </div>
+        </div>
+
+        <div class="jhs-hub-tabs" role="tablist">
+          <button type="button" class="jhs-tab-btn active" data-jhs-tab="wishlist">
+            ☁️ 1. 一键构建集换社心愿单 & 实时最低价
+          </button>
+          <button type="button" class="jhs-tab-btn" data-jhs-tab="shop">
+            🏪 2. 卖家店铺库存 1v1 配单比对
+          </button>
+          <button type="button" class="jhs-tab-btn" data-jhs-tab="import">
+            🔗 3. 导入集换社心愿单链接
+          </button>
+        </div>
+      </div>
+
+      <div class="modal-body">
+        <!-- TAB 1: 一键在集换社构建新心愿单 & 实时最低价明细表 -->
+        <div id="jhsTabPanel_wishlist" class="jhs-tab-panel">
+          <!-- 直接在集换社 App 创建新心愿单卡片 -->
+          <div class="jhs-sync-card">
+            <div class="jhs-sync-header">
+              <div>
+                <div style="font-size:14.5px;font-weight:800;color:#fdba74;">
+                  🚀 方案 A：直接在集换社构建新心愿单（将购物车全部卡牌一键写入集换社 App）
+                </div>
+                <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">
+                  通过集换社官方市场接口（<code>POST /api/market/wish-list</code> &amp; <code>/wishes/add</code>）直接创建心愿单，完成后在集换社 App 内可直接点击「一键匹配 / 跨店配单」！
+                </div>
+              </div>
+              <button type="button" id="jhsToggleAuthBoxBtn" class="btn" style="height:30px;font-size:12px;flex-shrink:0;">
+                🔑 <span id="jhsAuthStatusBtnText">配置集换社账号 Token</span>
+              </button>
+            </div>
+
+            <!-- 账号登录 / Token 配置折叠框 -->
+            <div id="jhsAuthConfigBox" class="jhs-auth-box" style="display:none;">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;">
+                <div style="background:var(--bg-surface);padding:10px 12px;border-radius:8px;border:1px solid var(--border-subtle);">
+                  <div style="font-size:12.5px;font-weight:700;color:var(--gold-light);margin-bottom:6px;">方式 1：集换社手机号验证码快捷登录</div>
+                  <div style="display:flex;gap:6px;margin-bottom:6px;">
+                    <input type="tel" id="jhsPhoneInput" class="search-input" style="height:32px;padding:0 10px;flex:1;" placeholder="输入集换社绑定手机号" />
+                    <button type="button" id="jhsSendSmsBtn" class="btn" style="height:32px;font-size:12px;white-space:nowrap;">发送验证码</button>
+                  </div>
+                  <div style="display:flex;gap:6px;">
+                    <input type="text" id="jhsSmsCodeInput" class="search-input" style="height:32px;padding:0 10px;flex:1;" placeholder="输入短信验证码" />
+                    <button type="button" id="jhsSmsLoginBtn" class="btn btn-gold" style="height:32px;font-size:12px;white-space:nowrap;">登录获取 Token</button>
+                  </div>
+                </div>
+
+                <div style="background:var(--bg-surface);padding:10px 12px;border-radius:8px;border:1px solid var(--border-subtle);">
+                  <div style="font-size:12.5px;font-weight:700;color:var(--gold-light);margin-bottom:6px;">方式 2：直接粘贴集换社 Bearer Token</div>
+                  <div style="display:flex;gap:6px;margin-bottom:6px;">
+                    <input type="password" id="jhsTokenInput" class="search-input" style="height:32px;padding:0 10px;flex:1;" placeholder="粘贴 Authorization Bearer Token..." />
+                    <button type="button" id="jhsSaveTokenBtn" class="btn btn-accent" style="height:32px;font-size:12px;white-space:nowrap;">保存 Token</button>
+                    <button type="button" id="jhsClearTokenBtn" class="btn" style="height:32px;font-size:12px;white-space:nowrap;">清除</button>
+                  </div>
+                  <div style="font-size:11px;color:var(--text-secondary);line-height:1.4;">
+                    🔒 Token 仅保存在您当前浏览器的本地存储 (<code>localStorage</code>) 中，直连 <code>api.jihuanshe.com</code>，绝不经过任何第三方服务器。
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 创建新心愿单主操作行 -->
+            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border-subtle);">
+              <label style="font-size:12.5px;display:inline-flex;align-items:center;gap:6px;">
+                新心愿单名称：
+                <input type="text" id="jhsNewWishListNameInput" class="search-input" style="width:200px;height:34px;padding:0 10px;" value="符文战场选购单" />
+              </label>
+              <label style="font-size:12.5px;display:inline-flex;align-items:center;gap:5px;cursor:pointer;" title="开启后在集换社配单时不限制具体罕贵度版本，更容易在同一家店铺凑齐">
+                <input type="checkbox" id="jhsIgnoreVersionCheck" checked /> 允许匹配任意版本 (配单更易凑齐)
+              </label>
+
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;">
+                <button type="button" id="jhsCreateWishListBtn" class="btn btn-jhs" style="height:36px;font-weight:800;">
+                  ☁️ 直接在集换社新建心愿单并写入全部卡牌
+                </button>
+                <button type="button" id="jhsQuickExportTextBtn" class="btn" style="height:36px;" title="免登录导出集换社心愿单格式表格">
+                  📋 导出心愿单文本表格
+                </button>
+                <button type="button" id="jhsQuickAiBoardBtn" class="btn" style="height:36px;" title="免登录生成集换社 AI 识卡专用无遮挡拼图">
+                  📸 生成 AI 识卡纯净拼图
+                </button>
+              </div>
+            </div>
+
+            <!-- 写入进度与成功后的集换社 App 唤醒卡片 -->
+            <div id="jhsCreatedWishResultBox" style="display:none;margin-top:12px;padding:12px;border-radius:10px;background:rgba(16,185,129,0.12);border:1.5px solid #10b981;">
+              <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+                <div style="flex:1;min-width:220px;">
+                  <div id="jhsCreatedWishTitle" style="font-size:14px;font-weight:800;color:#34d399;">
+                    ✅ 已成功在集换社创建心愿单并写入卡牌！
+                  </div>
+                  <div id="jhsCreatedWishSub" style="font-size:12px;color:var(--text-secondary);margin-top:4px;"></div>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+                    <a id="jhsOpenCreatedWishAppBtn" href="#" class="btn btn-gold" style="text-decoration:none;height:34px;">
+                      📱 一键唤起集换社 App 打开该心愿单
+                    </a>
+                    <a id="jhsOpenCreatedWishWebBtn" href="#" target="_blank" rel="noopener" class="btn" style="text-decoration:none;height:34px;">
+                      🌐 打开心愿单分享网页
+                    </a>
+                  </div>
+                </div>
+                <div style="text-align:center;background:#fff;padding:6px;border-radius:8px;">
+                  <img id="jhsCreatedWishQrImg" src="" alt="集换社小程序心愿单二维码" style="width:92px;height:92px;display:block;" />
+                  <div style="font-size:10px;color:#090d16;font-weight:700;margin-top:2px;">微信扫码直达心愿单</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 购物车集换社实时价格与版本映射表 -->
+          <div style="font-size:12.5px;color:var(--text-secondary);margin:12px 0 6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
+            <span>💰 <strong>购物车卡牌 × 集换社最低价版本匹配明细</strong>（已默认自动选中各编号下价格最低的版本，也可手动切换版本或单张唤起 App）：</span>
+          </div>
+          <div class="rift-list-table-wrap" style="max-height:380px;overflow-y:auto;">
+            <table class="rift-list-table">
+              <thead>
+                <tr>
+                  <th style="width:48px;">卡图</th>
+                  <th>卡牌名称 &amp; 原编号</th>
+                  <th>匹配集换社版本 (默认取最低价)</th>
+                  <th style="width:110px;">集换社最低价</th>
+                  <th style="width:70px;">数量</th>
+                  <th style="width:105px;">小计金额</th>
+                  <th style="width:155px;">App 快捷操作</th>
+                </tr>
+              </thead>
+              <tbody id="jhsCartTableTbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB 2: 卖家店铺库存 1v1 配单比对 -->
+        <div id="jhsTabPanel_shop" class="jhs-tab-panel" style="display:none;">
+          <div class="jhs-sync-card">
+            <div style="font-size:14.5px;font-weight:800;color:#fdba74;margin-bottom:4px;">
+              🏪 集换社卖家店铺库存 1v1 配单比对器（免登录直接可用）
+            </div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">
+              在集换社 App 进入任意卖家店铺，点击右上角「分享 ➔ 复制链接」（如 <code>https://www.jihuanshe.com/app/sellCards?userId=...</code>）或直接输入卖家的<strong>集换号 (userId)</strong>，即可一键检测该店铺拥有您购物车中的哪些卡牌及店内售价，省去多店运费！
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <input
+                type="text"
+                id="jhsShopUrlInput"
+                class="search-input"
+                style="flex:1;min-width:220px;height:36px;"
+                placeholder="粘贴集换社店铺分享链接 (https://www.jihuanshe.com/app/sellCards?userId=...) 或输入卖家集换号 ID..."
+              />
+              <button type="button" id="jhsScanShopBtn" class="btn btn-jhs" style="height:36px;padding:0 18px;">
+                🔍 扫描该店铺库存并比对购物车
+              </button>
+            </div>
+          </div>
+
+          <div id="jhsShopResultContainer" style="margin-top:12px;">
+            <div style="text-align:center;padding:36px 16px;color:var(--text-secondary);border:1px dashed var(--border-subtle);border-radius:12px;">
+              粘贴集换社卖家店铺链接或集换号后点击上方按钮，即可生成 1v1 店内配单有货/缺货清单与总价对比
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: 导入集换社心愿单分享链接 -->
+        <div id="jhsTabPanel_import" class="jhs-tab-panel" style="display:none;">
+          <div class="jhs-sync-card">
+            <div style="font-size:14.5px;font-weight:800;color:#fdba74;margin-bottom:4px;">
+              🔗 从集换社「心愿单分享链接」一键导入到 H5 购物车（免登录直接可用）
+            </div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">
+              在集换社 App 打开任意《符文战场》心愿单，点击右上角「分享 ➔ 复制链接」（如 <code>https://www.jihuanshe.com/app/wishCards?wishListId=...</code>）或直接输入 <code>wishListId</code>，即可将心愿单内的全部卡牌与数量同步导入到当前网页购物车中！
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+              <input
+                type="text"
+                id="jhsImportWishUrlInput"
+                class="search-input"
+                style="flex:1;min-width:220px;height:36px;"
+                placeholder="粘贴集换社心愿单分享链接 (https://www.jihuanshe.com/app/wishCards?wishListId=...) 或输入 wishListId..."
+              />
+              <button type="button" id="jhsConfirmImportWishUrlBtn" class="btn btn-gold" style="height:36px;padding:0 18px;">
+                📥 解析心愿单并导入购物车
+              </button>
+            </div>
+            <label style="font-size:12.5px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="checkbox" id="jhsImportWishReplaceCheck" /> 清空现有购物车后导入（默认在现有购物车数量上累加）
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <span style="font-size:12px;color:var(--text-secondary);">
+          💡 提示：手机端点击单卡「📱 跳 App」可直接唤起集换社 App 对应单卡购买页；若需免登录批量加心愿单，推荐使用「📸 生成 AI 识卡纯净拼图」后在 App 相册识卡导入
+        </span>
+        <div class="modal-footer-btns" style="display:flex;gap:8px;">
+          <button type="button" class="btn" data-close-modal="jhsHubModal">关闭窗口</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 移动端底部常驻快捷导航栏 (仅在手机/平板竖屏显示) -->
   <nav id="mobileBottomBar" class="mobile-bottom-bar" aria-label="移动端快捷操作栏">
     <button type="button" id="mobileCartBarBtn" class="mobile-nav-btn mobile-nav-cart">
@@ -686,6 +946,10 @@
         <span id="mobileCartSubText" class="m-sub">0 种卡牌</span>
       </div>
     </button>
+    <button type="button" id="mobileJhsBarBtn" class="mobile-nav-btn" style="border-color:rgba(249,115,22,0.55);color:#fdba74;">
+      <span class="m-emoji">⚡</span>
+      <span>集换社</span>
+    </button>
     <button type="button" id="mobilePreviewBarBtn" class="mobile-nav-btn">
       <span class="m-emoji">🖼️</span>
       <span>预览截图</span>
@@ -696,7 +960,7 @@
     </button>
     <button type="button" id="mobileImportBarBtn" class="mobile-nav-btn">
       <span class="m-emoji">📥</span>
-      <span>导入卡表</span>
+      <span>导入</span>
     </button>
   </nav>
 

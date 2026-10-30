@@ -817,6 +817,10 @@
             </div>
           </div>
 
+          <div id="detailModalJhsBox" style="padding:12px 14px;background:rgba(249,115,22,0.08);border-radius:10px;border:1px solid rgba(249,115,22,0.35);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+            <span style="font-size:12.5px;color:#fdba74;">⚡ 正在查询集换社 App 在售全版本最低价...</span>
+          </div>
+
           ${otherPrints.length > 0 ? `
             <div>
               <div style="font-size:12.5px;color:var(--text-secondary);margin-bottom:8px;font-weight:600;">
@@ -850,6 +854,29 @@
       </div>
     `;
     document.getElementById('cardDetailModal').classList.add('open');
+
+    fetchJhsVersionsForCard(card, false).then(versions => {
+      const box = document.getElementById('detailModalJhsBox');
+      if (!box) return;
+      const ver = getSelectedJhsVersion(card);
+      if (!ver || !versions.length) {
+        box.innerHTML = `<span style="font-size:12px;color:var(--text-secondary);">⚡ 集换社暂未检索到对应在售版本</span>`;
+        return;
+      }
+      const minP = parseFloat(ver.min_price);
+      const priceText = minP > 0 ? `¥${minP.toFixed(2)}` : '暂无在售报价';
+      const deepLink = `jihuanshe://www.jihuanshe.com/app/cardDetail?gameKey=lol&gameSubKey=default&cardVersionId=${ver.id}`;
+      box.innerHTML = `
+        <div>
+          <div style="font-size:13px;font-weight:700;color:#fed7aa;">
+            ⚡ 集换社最低价：<span style="font-size:16px;font-weight:900;color:#fb923c;">${priceText}</span>
+            <span style="font-size:11.5px;color:var(--text-secondary);margin-left:6px;">(${escapeHtml(ver.number || card.id)} · ${escapeHtml(ver.rarity || '平卡')})</span>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">共检索到 ${versions.length} 个集换社版本，已自动优选最低价版本</div>
+        </div>
+        <a class="btn btn-sm btn-jhs" href="${deepLink}" style="text-decoration:none;">📱 跳集换社 App 购买</a>
+      `;
+    });
   }
 
   // =========================================================================
@@ -915,7 +942,17 @@
     const title = document.getElementById('boardTitleInput').value.trim() || '《符文战场》卡牌选购清单';
     const groupBy = document.getElementById('boardGroupSelect').value;
     const cols = parseInt(document.getElementById('boardColsSelect').value, 10) || 6;
-    const showCaption = document.getElementById('boardShowCaptionCheck').checked;
+    const aiCleanMode = Boolean(document.getElementById('boardJhsAiCleanModeCheck')?.checked);
+    const showCaption = !aiCleanMode && Boolean(document.getElementById('boardShowCaptionCheck')?.checked);
+    const showJhsPrice = !aiCleanMode && Boolean(document.getElementById('boardShowJhsPriceCheck')?.checked);
+
+    if (showJhsPrice && entries.some(({ card }) => !jhsVersionsCache.has(card.id)) && !jhsState.isFetchingCartPrices) {
+      ensureCartJhsPricesLoaded(false).then(() => {
+        if (document.getElementById('previewBoardModal')?.classList.contains('open')) {
+          renderVisualPreviewBoard();
+        }
+      });
+    }
 
     container.style.setProperty('--board-cols', cols);
 
@@ -931,6 +968,14 @@
     }
 
     const totalQty = entries.reduce((acc, e) => acc + e.qty, 0);
+    let totalJhsCost = 0;
+    if (showJhsPrice) {
+      entries.forEach(({ card, qty }) => {
+        const v = getSelectedJhsVersion(card);
+        const p = parseFloat(v?.min_price);
+        if (p > 0) totalJhsCost += p * qty;
+      });
+    }
     const sections = getGroupedCartSections(groupBy, entries);
     const dateStr = new Date().toLocaleDateString('zh-CN');
 
@@ -938,11 +983,16 @@
       <div class="board-banner">
         <div>
           <div class="board-banner-title">${escapeHtml(title)}</div>
-          <div class="board-banner-sub">RiftAtlas《符文战场》选购预览看板 · 生成日期 ${dateStr} · 鼠标悬停卡牌可高清放大预览</div>
+          <div class="board-banner-sub">${
+            aiCleanMode
+              ? '🤖 集换社 App「AI 拍照识卡」纯净拼图模式 · 已隐藏角标遮挡，导出图片后可在集换社心愿单直接相册识卡导入'
+              : `RiftAtlas《符文战场》选购预览看板 · 生成日期 ${dateStr} · 鼠标悬停卡牌可高清放大预览`
+          }</div>
         </div>
         <div class="board-banner-stats">
           <div class="board-stat-pill"><strong>${totalQty}</strong>总张数</div>
           <div class="board-stat-pill"><strong>${entries.length}</strong>卡牌种类</div>
+          ${showJhsPrice ? `<div class="board-stat-pill" style="border-color:rgba(249,115,22,0.55);"><strong style="color:#fdba74;">¥${totalJhsCost.toFixed(2)}</strong>集换社最低估价</div>` : ''}
         </div>
       </div>
 
@@ -950,14 +1000,17 @@
         const secTotal = sec.entries.reduce((s, e) => s + e.qty, 0);
         return `
           <div class="board-group-section">
-            ${groupBy !== 'none' ? `
+            ${groupBy !== 'none' && !aiCleanMode ? `
               <div class="board-group-header">
                 <span>◆ ${escapeHtml(sec.title)}</span>
                 <span class="count">${secTotal} 张 (${sec.entries.length} 种)</span>
               </div>
             ` : ''}
             <div class="board-cards-grid">
-              ${sec.entries.map(({ card, qty }) => `
+              ${sec.entries.map(({ card, qty }) => {
+                const jhsVer = showJhsPrice ? getSelectedJhsVersion(card) : null;
+                const jhsMinP = parseFloat(jhsVer?.min_price);
+                return `
                 <div class="board-card-item" data-hover-card="${card.id}">
                   <div class="art-wrap" data-action="detail" data-id="${card.id}">
                     <img
@@ -967,16 +1020,18 @@
                       alt="${escapeHtml(card.name)}"
                       onerror="if(this.dataset.fallback && this.src!==this.dataset.fallback){this.src=this.dataset.fallback;}"
                     />
-                    <span class="qty-badge">×${qty}</span>
+                    ${!aiCleanMode ? `<span class="qty-badge">×${qty}</span>` : ''}
+                    ${showJhsPrice && jhsMinP > 0 ? `<span class="jhs-price-tag">¥${jhsMinP.toFixed(2)}</span>` : ''}
                   </div>
                   ${showCaption ? `
                     <div class="board-card-caption">
                       <div class="nm" title="${escapeHtml(card.name)}">${escapeHtml(card.name)}</div>
-                      <div class="cid">${card.id}</div>
+                      <div class="cid">${card.id}${showJhsPrice && jhsMinP > 0 ? ` · ¥${(jhsMinP * qty).toFixed(2)}` : ''}</div>
                     </div>
                   ` : ''}
                 </div>
-              `).join('')}
+              `;
+              }).join('')}
             </div>
           </div>
         `;
@@ -1041,8 +1096,14 @@
     const title = document.getElementById('boardTitleInput').value.trim() || '《符文战场》卡牌选购清单';
     const groupBy = document.getElementById('boardGroupSelect').value;
     const cols = parseInt(document.getElementById('boardColsSelect').value, 10) || 6;
-    const showCaption = document.getElementById('boardShowCaptionCheck').checked;
+    const aiCleanMode = Boolean(document.getElementById('boardJhsAiCleanModeCheck')?.checked);
+    const showCaption = !aiCleanMode && Boolean(document.getElementById('boardShowCaptionCheck')?.checked);
+    const showJhsPrice = !aiCleanMode && Boolean(document.getElementById('boardShowJhsPriceCheck')?.checked);
     const sections = getGroupedCartSections(groupBy, entries);
+
+    if (showJhsPrice) {
+      await ensureCartJhsPricesLoaded(false);
+    }
 
     // 尺寸参数 (2x 高清渲染)
     const scale = 2;
@@ -1055,7 +1116,7 @@
     const gapX = 16;
     const gapY = 18;
     const headerH = 92;
-    const groupTitleH = groupBy !== 'none' ? 38 : 0;
+    const groupTitleH = groupBy !== 'none' && !aiCleanMode ? 38 : 0;
     const sectionGap = 24;
 
     const boardW = padX * 2 + cols * cardW + (cols - 1) * gapX;
@@ -1100,6 +1161,14 @@
 
     // 2. 顶部 Banner
     const totalQty = entries.reduce((s, e) => s + e.qty, 0);
+    let totalJhsCost = 0;
+    if (showJhsPrice) {
+      entries.forEach(({ card, qty }) => {
+        const v = getSelectedJhsVersion(card);
+        const p = parseFloat(v?.min_price);
+        if (p > 0) totalJhsCost += p * qty;
+      });
+    }
     const dateStr = new Date().toLocaleDateString('zh-CN');
 
     ctx.fillStyle = '#fde047';
@@ -1108,10 +1177,18 @@
 
     ctx.fillStyle = '#94a3b8';
     ctx.font = '13px "Microsoft YaHei", "PingFang SC", sans-serif';
-    ctx.fillText(`《符文战场》卡牌选购预览清单 · 导出日期 ${dateStr}`, padX, padY + 56);
+    ctx.fillText(
+      aiCleanMode
+        ? `集换社 App「AI 拍照识卡」纯净拼图 · 导出日期 ${dateStr}`
+        : `《符文战场》卡牌选购预览清单 · 导出日期 ${dateStr}`,
+      padX,
+      padY + 56
+    );
 
     // 右侧统计胶囊
-    const statText = `总计 ${totalQty} 张  |  共 ${entries.length} 种卡牌`;
+    const statText = showJhsPrice
+      ? `总计 ${totalQty} 张  |  共 ${entries.length} 种  |  集换社估价 ¥${totalJhsCost.toFixed(2)}`
+      : `总计 ${totalQty} 张  |  共 ${entries.length} 种卡牌`;
     ctx.font = 'bold 15px "Microsoft YaHei", "PingFang SC", sans-serif';
     const statW = ctx.measureText(statText).width + 32;
     const statX = boardW - padX - statW;
@@ -1137,7 +1214,7 @@
     let curY = padY + headerH;
 
     for (const sec of sections) {
-      if (groupBy !== 'none') {
+      if (groupBy !== 'none' && !aiCleanMode) {
         const secQty = sec.entries.reduce((s, e) => s + e.qty, 0);
         ctx.fillStyle = '#f8fafc';
         ctx.font = 'bold 16px "Microsoft YaHei", "PingFang SC", sans-serif';
@@ -1185,33 +1262,61 @@
         }
         ctx.restore();
 
-        // 右上角数量角标 (×N)
-        const badgeText = `×${qty}`;
-        ctx.font = 'bold 16px "Segoe UI", "Microsoft YaHei", sans-serif';
-        const bw = Math.max(44, ctx.measureText(badgeText).width + 20);
-        const bh = 28;
-        const bx = x + cardW - bw - 8;
-        const by = y + 8;
+        // 右上角数量角标 (×N) - AI 纯净识卡模式下不遮挡卡面
+        if (!aiCleanMode) {
+          const badgeText = `×${qty}`;
+          ctx.font = 'bold 16px "Segoe UI", "Microsoft YaHei", sans-serif';
+          const bw = Math.max(44, ctx.measureText(badgeText).width + 20);
+          const bh = 28;
+          const bx = x + cardW - bw - 8;
+          const by = y + 8;
 
-        ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-        ctx.shadowBlur = 8;
-        const badgeGrad = ctx.createLinearGradient(bx, by, bx + bw, by + bh);
-        badgeGrad.addColorStop(0, '#facc15');
-        badgeGrad.addColorStop(1, '#ca8a04');
-        ctx.fillStyle = badgeGrad;
-        drawRoundedRect(ctx, bx, by, bw, bh, 14);
-        ctx.fill();
-        ctx.strokeStyle = '#fef08a';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-        ctx.restore();
+          ctx.save();
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+          ctx.shadowBlur = 8;
+          const badgeGrad = ctx.createLinearGradient(bx, by, bx + bw, by + bh);
+          badgeGrad.addColorStop(0, '#facc15');
+          badgeGrad.addColorStop(1, '#ca8a04');
+          ctx.fillStyle = badgeGrad;
+          drawRoundedRect(ctx, bx, by, bw, bh, 14);
+          ctx.fill();
+          ctx.strokeStyle = '#fef08a';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          ctx.restore();
 
-        ctx.fillStyle = '#090d16';
-        ctx.font = '900 15px "Segoe UI", "Microsoft YaHei", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(badgeText, bx + bw / 2, by + 19.5);
-        ctx.textAlign = 'left';
+          ctx.fillStyle = '#090d16';
+          ctx.font = '900 15px "Segoe UI", "Microsoft YaHei", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(badgeText, bx + bw / 2, by + 19.5);
+          ctx.textAlign = 'left';
+        }
+
+        // 左下角集换社最低价标签
+        if (showJhsPrice && !aiCleanMode) {
+          const jhsVer = getSelectedJhsVersion(card);
+          const minP = parseFloat(jhsVer?.min_price);
+          if (minP > 0) {
+            const pText = `¥${minP.toFixed(2)}`;
+            ctx.font = 'bold 13px "Segoe UI", "Microsoft YaHei", sans-serif';
+            const pw = ctx.measureText(pText).width + 16;
+            const ph = 24;
+            const px = x + 8;
+            const py = y + cardH - ph - 8;
+            ctx.save();
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+            drawRoundedRect(ctx, px, py, pw, ph, 12);
+            ctx.fill();
+            ctx.strokeStyle = '#f97316';
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+            ctx.fillStyle = '#fdba74';
+            ctx.textAlign = 'center';
+            ctx.fillText(pText, px + pw / 2, py + 16.5);
+            ctx.textAlign = 'left';
+            ctx.restore();
+          }
+        }
 
         // 底部卡名与编号标签
         if (showCaption) {
@@ -1230,9 +1335,12 @@
           if (displayName !== card.name) displayName += '…';
           ctx.fillText(displayName, x + cardW / 2, capY + 17);
 
+          const jhsVer = showJhsPrice ? getSelectedJhsVersion(card) : null;
+          const minP = parseFloat(jhsVer?.min_price);
+          const subText = showJhsPrice && minP > 0 ? `${card.id} · ¥${(minP * qty).toFixed(2)}` : card.id;
           ctx.fillStyle = '#94a3b8';
           ctx.font = '11px Consolas, monospace';
-          ctx.fillText(card.id, x + cardW / 2, capY + 34);
+          ctx.fillText(subText, x + cardW / 2, capY + 34);
           ctx.textAlign = 'left';
         }
 
@@ -1321,7 +1429,41 @@
     { key: 'id', label: '卡牌编号', getValue: ({ card }) => card.id },
     { key: 'cost', label: '法力费用', getValue: ({ card }) => card.energyCost !== null ? String(card.energyCost) : '-' },
     { key: 'might', label: '战力', getValue: ({ card }) => card.might !== null ? String(card.might) : '-' },
-    { key: 'set', label: '所属系列', getValue: ({ card }) => formatSet(card.set) }
+    { key: 'set', label: '所属系列', getValue: ({ card }) => formatSet(card.set) },
+    {
+      key: 'jhsNumber',
+      label: '集换社编号',
+      getValue: ({ card }) => {
+        const v = getSelectedJhsVersion(card);
+        return v?.number || card.id.replace('-', '·');
+      }
+    },
+    {
+      key: 'jhsRarity',
+      label: '集换社版本',
+      getValue: ({ card }) => {
+        const v = getSelectedJhsVersion(card);
+        return v ? `${v.rarity || '平卡'} (#${v.id})` : formatRarity(card.rarity);
+      }
+    },
+    {
+      key: 'jhsPrice',
+      label: '集换社最低价',
+      getValue: ({ card }) => {
+        const v = getSelectedJhsVersion(card);
+        const p = parseFloat(v?.min_price);
+        return p > 0 ? `¥${p.toFixed(2)}` : '-';
+      }
+    },
+    {
+      key: 'jhsSubtotal',
+      label: '集换社小计',
+      getValue: ({ card, qty }) => {
+        const v = getSelectedJhsVersion(card);
+        const p = parseFloat(v?.min_price);
+        return p > 0 ? `¥${(p * qty).toFixed(2)}` : '-';
+      }
+    }
   ];
 
   function getSelectedExportColumns() {
@@ -1409,6 +1551,32 @@
     const format = document.getElementById('textFormatSelect').value;
     const includeHeader = document.getElementById('textIncludeHeaderCheck').checked;
     const totalQty = entries.reduce((s, e) => s + e.qty, 0);
+    let totalJhsCost = 0;
+    entries.forEach(({ card, qty }) => {
+      const v = getSelectedJhsVersion(card);
+      const p = parseFloat(v?.min_price);
+      if (p > 0) totalJhsCost += p * qty;
+    });
+
+    if (format === 'jhs_wishlist') {
+      const lines = [];
+      if (includeHeader) {
+        lines.push(`=== 集换社《符文战场》心愿单配卡表 (${new Date().toLocaleDateString('zh-CN')}) ===`);
+      }
+      entries.forEach(({ card, qty }, idx) => {
+        const v = getSelectedJhsVersion(card);
+        const jhsNum = v?.number || card.id.replace('-', '·');
+        const jhsRar = v?.rarity || formatRarity(card.rarity);
+        const minP = parseFloat(v?.min_price);
+        const pricePart = minP > 0 ? ` | 集换社底价 ¥${minP.toFixed(2)} (小计 ¥${(minP * qty).toFixed(2)})` : '';
+        lines.push(`${idx + 1}. ${card.name} [${jhsNum} · ${jhsRar}] x${qty}${pricePart}`);
+      });
+      if (includeHeader) {
+        lines.push(`--------------------------------------------------------------`);
+        lines.push(`总计：${entries.length} 种卡牌，共 ${totalQty} 张${totalJhsCost > 0 ? ` | 集换社在售最低估价合计：¥${totalJhsCost.toFixed(2)}` : ''}`);
+      }
+      return lines.join('\n');
+    }
 
     // 构建二维单元格数据
     const dataRows = entries.map(entry => cols.map(c => c.getValue(entry)));
@@ -1437,6 +1605,7 @@
         const summaryCells = cols.map((col, i) => {
           if (col.key === 'name') return padRightDisplay(`总计（共 ${entries.length} 种卡牌）`, colWidths[i]);
           if (col.key === 'qty') return padRightDisplay(String(totalQty), colWidths[i]);
+          if (col.key === 'jhsSubtotal' && totalJhsCost > 0) return padRightDisplay(`¥${totalJhsCost.toFixed(2)}`, colWidths[i]);
           return padRightDisplay('', colWidths[i]);
         });
         lines.push(summaryCells.join(' | '));
@@ -1456,6 +1625,7 @@
         const summaryCells = cols.map(col => {
           if (col.key === 'name') return `总计 (${entries.length}种)`;
           if (col.key === 'qty') return String(totalQty);
+          if (col.key === 'jhsSubtotal' && totalJhsCost > 0) return `¥${totalJhsCost.toFixed(2)}`;
           return '';
         });
         lines.push(summaryCells.join('\t'));
@@ -1474,6 +1644,7 @@
         const summaryCells = cols.map(col => {
           if (col.key === 'name') return `**总计（${entries.length} 种）**`;
           if (col.key === 'qty') return `**${totalQty}**`;
+          if (col.key === 'jhsSubtotal' && totalJhsCost > 0) return `**¥${totalJhsCost.toFixed(2)}**`;
           return '-';
         });
         lines.push('| ' + summaryCells.join(' | ') + ' |');
@@ -1490,7 +1661,7 @@
       return `${entry.card.name}${extraStr} x${entry.qty}`;
     });
     if (includeHeader) {
-      lines.push(`\n总计：${entries.length} 种卡牌，共 ${totalQty} 张`);
+      lines.push(`\n总计：${entries.length} 种卡牌，共 ${totalQty} 张${totalJhsCost > 0 ? ` · 集换社估价合计 ¥${totalJhsCost.toFixed(2)}` : ''}`);
     }
     return lines.join('\n');
   }
@@ -1498,6 +1669,19 @@
   function renderTextExportContent() {
     const entries = getFilteredExportEntries();
     const cols = getSelectedExportColumns();
+    const format = document.getElementById('textFormatSelect')?.value;
+    const needsJhsData =
+      format === 'jhs_wishlist' ||
+      cols.some(c => c.key.startsWith('jhs'));
+
+    if (needsJhsData && entries.some(({ card }) => !jhsVersionsCache.has(card.id)) && !jhsState.isFetchingCartPrices) {
+      ensureCartJhsPricesLoaded(false).then(() => {
+        if (document.getElementById('textExportModal')?.classList.contains('open')) {
+          renderTextExportContent();
+        }
+      });
+    }
+
     const totalQty = entries.reduce((s, e) => s + e.qty, 0);
 
     // 更新状态统计文字
@@ -1520,6 +1704,7 @@
               const val = escapeHtml(c.getValue(entry));
               if (c.key === 'name') return `<td style="font-weight:700;color:var(--text-main);">${val}</td>`;
               if (c.key === 'qty') return `<td style="font-weight:800;color:var(--gold-light);">×${val}</td>`;
+              if (c.key === 'jhsPrice' || c.key === 'jhsSubtotal') return `<td style="font-weight:700;color:#fdba74;">${val}</td>`;
               return `<td>${val}</td>`;
             }).join('')}
           </tr>
@@ -1580,12 +1765,22 @@
       if (idMatch && cardById.has(idMatch[1].toUpperCase())) {
         return cardById.get(idMatch[1].toUpperCase());
       }
+      const jhsMatch = String(idStr).match(/\b([A-Z]{3})\s*[·\-]\s*(\d{3})\b/i);
+      if (jhsMatch) {
+        const stdCode = `${jhsMatch[1].toUpperCase()}-${jhsMatch[2]}`;
+        if (cardById.has(stdCode)) return cardById.get(stdCode);
+      }
     }
     if (nameStr) {
       const rawName = String(nameStr).trim();
       const idInName = rawName.match(/\b([A-Z]{3}-[A-Z0-9]+)\b/i);
       if (idInName && cardById.has(idInName[1].toUpperCase())) {
         return cardById.get(idInName[1].toUpperCase());
+      }
+      const jhsInName = rawName.match(/\b([A-Z]{3})\s*[·\-]\s*(\d{3})\b/i);
+      if (jhsInName) {
+        const stdCode = `${jhsInName[1].toUpperCase()}-${jhsInName[2]}`;
+        if (cardById.has(stdCode)) return cardById.get(stdCode);
       }
       const cleaned = rawName
         .replace(/\([A-Z]{3}-[A-Z0-9]+\)/gi, '')
@@ -1601,7 +1796,7 @@
     return null;
   }
 
-  // 批量导入文本与 CSV 解析（兼容多列 CSV、TSV、Markdown 表格与极简行文本）
+  // 批量导入文本与 CSV 解析（兼容多列 CSV、TSV、Markdown 表格、集换社心愿单分享链接与极简行文本）
   function handleImportText(customRawText) {
     const raw = (typeof customRawText === 'string' ? customRawText : document.getElementById('importTextarea').value).trim();
     if (!raw) {
@@ -1609,6 +1804,15 @@
       return;
     }
     const replace = document.getElementById('importReplaceCheck').checked;
+
+    // 若粘贴的是集换社心愿单分享链接，直接调用集换社心愿单导入接口
+    if (/wishCards\?wishListId=|wish_list_id=\d+/i.test(raw)) {
+      importFromJhsWishUrl(raw, replace).then(ok => {
+        if (ok) document.getElementById('importModal').classList.remove('open');
+      });
+      return;
+    }
+
     if (replace) state.cart.clear();
 
     const lines = raw.replace(/^\uFEFF/, '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
@@ -1759,9 +1963,781 @@
     reader.readAsArrayBuffer(file);
   }
 
+  // =========================================================================
+  // 核心交付 3：集换社 (Jihuanshe) App 深度联动引擎
+  // (实时最低价查询、全版本切换、一键新建心愿单、卖家店铺 1v1 齐卡扫描、心愿单链接导入)
+  // =========================================================================
+  const JHS_API_BASE = 'https://api.jihuanshe.com/api/market';
+  const JHS_TOKEN_STORAGE_KEY = 'riftbound_jhs_token_v1';
+  const JHS_PRICE_CACHE_STORAGE_KEY = 'riftbound_jhs_price_cache_v1';
+
+  const jhsVersionsCache = new Map(); // card.id -> Array<JhsCardVersion>
+  const jhsSelectedVersionMap = new Map(); // card.id -> number (card_version_id)
+
+  const jhsState = {
+    isFetchingCartPrices: false,
+    activeTab: 'wishlist',
+    token: '',
+    userWishlists: []
+  };
+
+  function loadJhsCacheFromSession() {
+    try {
+      const savedToken = localStorage.getItem(JHS_TOKEN_STORAGE_KEY);
+      if (savedToken) jhsState.token = savedToken.trim();
+
+      const rawCache = sessionStorage.getItem(JHS_PRICE_CACHE_STORAGE_KEY);
+      if (rawCache) {
+        const parsed = JSON.parse(rawCache);
+        if (parsed && typeof parsed === 'object') {
+          Object.entries(parsed).forEach(([cid, versions]) => {
+            if (Array.isArray(versions) && versions.length > 0) {
+              jhsVersionsCache.set(cid, versions);
+            }
+          });
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  function saveJhsCacheToSession() {
+    try {
+      const obj = {};
+      for (const [cid, versions] of jhsVersionsCache.entries()) {
+        obj[cid] = versions;
+      }
+      sessionStorage.setItem(JHS_PRICE_CACHE_STORAGE_KEY, JSON.stringify(obj));
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  // 集换社版本优选策略：默认自动选取该编号下所有在售版本（含平卡/闪卡/异画/体验卡）中最低正数价格的版本
+  function selectCheapestJhsVersion(versions, card) {
+    if (!Array.isArray(versions) || versions.length === 0) return null;
+    const withPositivePrice = versions
+      .map(v => ({ v, price: parseFloat(v.min_price) }))
+      .filter(item => Number.isFinite(item.price) && item.price > 0);
+
+    if (withPositivePrice.length > 0) {
+      withPositivePrice.sort((a, b) => a.price - b.price);
+      return withPositivePrice[0].v;
+    }
+    return versions[0];
+  }
+
+  function getSelectedJhsVersion(card) {
+    if (!card) return null;
+    const versions = jhsVersionsCache.get(card.id);
+    if (!versions || versions.length === 0) return null;
+
+    const customVerId = jhsSelectedVersionMap.get(card.id);
+    if (customVerId) {
+      const found = versions.find(v => Number(v.id) === Number(customVerId));
+      if (found) return found;
+    }
+    const cheapest = selectCheapestJhsVersion(versions, card);
+    if (cheapest) {
+      jhsSelectedVersionMap.set(card.id, Number(cheapest.id));
+    }
+    return cheapest;
+  }
+
+  // 规范化本地卡牌编号用于集换社检索（例如 OGN-001a -> OGN-001）
+  function normalizeCardCodeForJhs(cardId) {
+    return String(cardId || '')
+      .trim()
+      .replace(/^([A-Z]{3}-\d+)[a-zA-Z]*$/i, '$1')
+      .toUpperCase();
+  }
+
+  async function fetchJhsVersionsForCard(card, forceRefresh = false) {
+    if (!card) return [];
+    if (!forceRefresh && jhsVersionsCache.has(card.id)) {
+      return jhsVersionsCache.get(card.id);
+    }
+
+    const baseCode = normalizeCardCodeForJhs(card.id);
+    const dotPrefix = baseCode.replace('-', '·');
+
+    const queryKeyword = async kw => {
+      const url = `${JHS_API_BASE}/search/match-product?keyword=${encodeURIComponent(kw)}&game_key=lol&game_sub_key=default&type=card_version&page=1`;
+      const resp = await fetch(url, { headers: { Accept: 'application/json' } });
+      if (!resp.ok) return [];
+      const json = await resp.json();
+      return Array.isArray(json?.data) ? json.data : [];
+    };
+
+    try {
+      let list = await queryKeyword(baseCode);
+
+      // 优先筛选编号前缀或中文卡名吻合的版本
+      let filtered = list.filter(item => {
+        const numStr = String(item.number || '').toUpperCase();
+        const nameCn = String(item.name_cn || '').trim();
+        return (
+          numStr.startsWith(dotPrefix) ||
+          numStr.startsWith(baseCode) ||
+          nameCn === card.name ||
+          nameCn.includes(card.name) ||
+          card.name.includes(nameCn)
+        );
+      });
+
+      // 若按编号未搜到（如特殊礼盒/秘宝编号），回退按中文卡名搜索
+      if (filtered.length === 0 && card.name) {
+        const byNameList = await queryKeyword(card.name);
+        filtered = byNameList.filter(item => {
+          const nameCn = String(item.name_cn || '').trim();
+          return nameCn === card.name || nameCn.includes(card.name) || card.name.includes(nameCn);
+        });
+        if (filtered.length === 0) filtered = byNameList;
+      }
+
+      if (filtered.length > 0) {
+        jhsVersionsCache.set(card.id, filtered);
+        if (!jhsSelectedVersionMap.has(card.id)) {
+          const cheapest = selectCheapestJhsVersion(filtered, card);
+          if (cheapest) jhsSelectedVersionMap.set(card.id, Number(cheapest.id));
+        }
+        return filtered;
+      }
+    } catch (err) {
+      // 网络异常时忽略
+    }
+
+    jhsVersionsCache.set(card.id, []);
+    return [];
+  }
+
+  async function ensureCartJhsPricesLoaded(forceRefresh = false, onProgress = null) {
+    const entries = getCartEntriesSorted();
+    if (entries.length === 0) return;
+
+    const targets = entries.filter(({ card }) => forceRefresh || !jhsVersionsCache.has(card.id));
+    if (targets.length === 0) {
+      if (onProgress) onProgress(entries.length, entries.length);
+      return;
+    }
+
+    jhsState.isFetchingCartPrices = true;
+    const statusEl = document.getElementById('jhsPriceFetchStatus');
+    let completed = entries.length - targets.length;
+
+    const updateProgressText = () => {
+      if (statusEl) {
+        statusEl.textContent = `⏳ 正在查询集换社实时底价 (${completed}/${entries.length})...`;
+      }
+      if (onProgress) onProgress(completed, entries.length);
+    };
+    updateProgressText();
+
+    const concurrency = 4;
+    let idx = 0;
+    const workers = Array.from({ length: Math.min(concurrency, targets.length) }, async () => {
+      while (idx < targets.length) {
+        const current = targets[idx++];
+        await fetchJhsVersionsForCard(current.card, forceRefresh);
+        completed++;
+        updateProgressText();
+      }
+    });
+
+    await Promise.all(workers);
+    jhsState.isFetchingCartPrices = false;
+    saveJhsCacheToSession();
+
+    if (statusEl) {
+      statusEl.textContent = `✅ 已同步 ${entries.length} 种卡牌的集换社全版本最低底价`;
+    }
+  }
+
+  function updateJhsTokenBadgeUI() {
+    const badge = document.getElementById('jhsTokenStatusBadge');
+    const input = document.getElementById('jhsTokenInput');
+    if (input && jhsState.token && !input.value) {
+      input.value = jhsState.token;
+    }
+    if (!badge) return;
+    if (jhsState.token) {
+      badge.textContent = '✅ 已配置集换社 Token';
+      badge.style.background = 'rgba(34, 197, 94, 0.18)';
+      badge.style.color = '#86efac';
+      badge.style.border = '1px solid rgba(34, 197, 94, 0.45)';
+    } else {
+      badge.textContent = '未配置 Token（可免登录查价 / 导图 / 导文本）';
+      badge.style.background = 'rgba(255, 255, 255, 0.08)';
+      badge.style.color = 'var(--text-secondary)';
+      badge.style.border = '1px solid var(--border-subtle)';
+    }
+  }
+
+  async function fetchUserJhsWishlists() {
+    const select = document.getElementById('jhsTargetWishlistSelect');
+    if (!select) return;
+    select.innerHTML = `<option value="new">➕ 新建独立心愿单（推荐）</option>`;
+    if (!jhsState.token) return;
+
+    try {
+      const resp = await fetch(`${JHS_API_BASE}/wish-list?game_key=lol&game_sub_key=default&page=1`, {
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${jhsState.token}`
+        }
+      });
+      if (!resp.ok) return;
+      const json = await resp.json();
+      const list = Array.isArray(json?.data) ? json.data : Array.isArray(json) ? json : [];
+      jhsState.userWishlists = list;
+      list.forEach(w => {
+        const id = w.wish_list_id || w.id;
+        const name = w.name || `心愿单 #${id}`;
+        if (id) {
+          const opt = document.createElement('option');
+          opt.value = String(id);
+          opt.textContent = `📂 追加至已有：${name} (#${id})`;
+          select.appendChild(opt);
+        }
+      });
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  function renderJhsCartTable() {
+    const entries = getCartEntriesSorted();
+    const kindsEl = document.getElementById('jhsBannerKinds');
+    const totalQtyEl = document.getElementById('jhsBannerTotalQty');
+    const totalPriceEl = document.getElementById('jhsBannerTotalPrice');
+    const tbody = document.getElementById('jhsCartTableTbody');
+
+    const totalQty = entries.reduce((acc, e) => acc + e.qty, 0);
+    let totalCost = 0;
+
+    entries.forEach(({ card, qty }) => {
+      const v = getSelectedJhsVersion(card);
+      const p = parseFloat(v?.min_price);
+      if (p > 0) totalCost += p * qty;
+    });
+
+    if (kindsEl) kindsEl.textContent = String(entries.length);
+    if (totalQtyEl) totalQtyEl.textContent = String(totalQty);
+    if (totalPriceEl) totalPriceEl.textContent = `¥${totalCost.toFixed(2)}`;
+
+    if (!tbody) return;
+    if (entries.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="6" style="text-align:center;padding:36px 12px;color:var(--text-secondary);">
+            购物车为空，请先在主界面选择卡牌加入购物车，或切换到「📥 心愿单链接导入」标签页导入
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = entries
+      .map(({ card, qty }) => {
+        const versions = jhsVersionsCache.get(card.id) || [];
+        const selectedVer = getSelectedJhsVersion(card);
+        const minP = parseFloat(selectedVer?.min_price);
+        const priceStr = minP > 0 ? `¥${minP.toFixed(2)}` : jhsState.isFetchingCartPrices ? '查询中...' : '暂无报价';
+        const subStr = minP > 0 ? `¥${(minP * qty).toFixed(2)}` : '-';
+
+        const optionsHtml =
+          versions.length > 0
+            ? versions
+                .map(v => {
+                  const vp = parseFloat(v.min_price);
+                  const vpText = vp > 0 ? `¥${vp.toFixed(2)}` : '暂无报价';
+                  const isSel = selectedVer && Number(v.id) === Number(selectedVer.id);
+                  return `<option value="${v.id}" ${isSel ? 'selected' : ''}>${escapeHtml(v.number || card.id)} [${escapeHtml(v.rarity || '平卡')}] · ${vpText}</option>`;
+                })
+                .join('')
+            : `<option value="">${jhsState.isFetchingCartPrices ? '⏳ 正在检索集换社版本...' : `${card.id.replace('-', '·')} (未匹配到版本)`}</option>`;
+
+        const deepLinkUrl = selectedVer?.id
+          ? `jihuanshe://www.jihuanshe.com/app/cardDetail?gameKey=lol&gameSubKey=default&cardVersionId=${selectedVer.id}`
+          : '';
+
+        return `
+          <tr data-hover-card="${card.id}">
+            <td>
+              <div style="font-weight:700;color:var(--text-main);cursor:pointer;" data-action="detail" data-id="${card.id}">${escapeHtml(card.name)}</div>
+              <div style="font-size:11px;color:var(--text-muted);font-family:Consolas,monospace;">${card.id} · ${formatDomains(card.domains)}</div>
+            </td>
+            <td>
+              <select class="select-ctrl jhs-version-select" data-card-id="${card.id}" style="width:100%;max-width:250px;font-size:12px;padding:4px 8px;">
+                ${optionsHtml}
+              </select>
+            </td>
+            <td style="text-align:center;font-weight:800;color:var(--gold-light);">×${qty}</td>
+            <td style="text-align:right;font-weight:700;color:#fdba74;">${priceStr}</td>
+            <td style="text-align:right;font-weight:800;color:#fb923c;">${subStr}</td>
+            <td style="text-align:center;">
+              ${
+                deepLinkUrl
+                  ? `<a class="btn btn-sm btn-jhs" href="${deepLinkUrl}" style="text-decoration:none;padding:4px 8px;font-size:11px;" title="在集换社 App 中直接打开该卡牌详情与在售列表">📱 跳App</a>`
+                  : `<span style="font-size:11px;color:var(--text-muted);">-</span>`
+              }
+            </td>
+          </tr>
+        `;
+      })
+      .join('');
+  }
+
+  async function openJhsHubModal(defaultTab) {
+    hideHoverPreview();
+    if (defaultTab) {
+      switchJhsHubTab(defaultTab);
+    }
+    updateJhsTokenBadgeUI();
+    renderJhsCartTable();
+    document.getElementById('jhsHubModal').classList.add('open');
+
+    if (jhsState.token && jhsState.userWishlists.length === 0) {
+      fetchUserJhsWishlists();
+    }
+
+    if (state.cart.size > 0) {
+      await ensureCartJhsPricesLoaded(false, () => {
+        renderJhsCartTable();
+      });
+      renderJhsCartTable();
+    }
+  }
+
+  function switchJhsHubTab(tabName) {
+    jhsState.activeTab = tabName;
+    document.querySelectorAll('#jhsHubTabs .jhs-tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.jhsTab === tabName);
+    });
+    const panes = {
+      wishlist: document.getElementById('jhsTabWishlist'),
+      shop: document.getElementById('jhsTabShop'),
+      import: document.getElementById('jhsTabImport')
+    };
+    Object.entries(panes).forEach(([k, el]) => {
+      if (el) el.style.display = k === tabName ? 'block' : 'none';
+    });
+  }
+
+  // 一键在集换社云端创建心愿单并批量写入购物车卡牌
+  async function createJhsWishlistFromCart() {
+    const entries = getCartEntriesSorted();
+    if (entries.length === 0) {
+      showToast('⚠️ 购物车为空，请先添加要购买的卡牌');
+      return;
+    }
+
+    const tokenInputVal = document.getElementById('jhsTokenInput')?.value.trim();
+    if (tokenInputVal) {
+      jhsState.token = tokenInputVal.replace(/^Bearer\s+/i, '').trim();
+      localStorage.setItem(JHS_TOKEN_STORAGE_KEY, jhsState.token);
+      updateJhsTokenBadgeUI();
+    }
+
+    if (!jhsState.token) {
+      const authBox = document.getElementById('jhsAuthConfigBox');
+      if (authBox) {
+        authBox.style.display = 'block';
+        authBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+      showToast('🔑 请先在上方展开框内粘贴集换社 Token 或使用手机验证码登录；也可直接使用右侧免登录「AI 拍照识卡纯净图」');
+      return;
+    }
+
+    const progressEl = document.getElementById('jhsCreateWishProgress');
+    const createBtn = document.getElementById('jhsCreateWishlistBtn');
+    const resultBox = document.getElementById('jhsCreatedWishResultBox');
+    if (resultBox) resultBox.style.display = 'none';
+
+    try {
+      if (createBtn) createBtn.disabled = true;
+      if (progressEl) progressEl.textContent = '⏳ Step 1/3：正在核对购物车卡牌的集换社版本 ID...';
+
+      await ensureCartJhsPricesLoaded(false);
+      renderJhsCartTable();
+
+      const validItems = [];
+      for (const entry of entries) {
+        const ver = getSelectedJhsVersion(entry.card);
+        if (ver && ver.id) {
+          validItems.push({ card: entry.card, qty: entry.qty, ver });
+        }
+      }
+
+      if (validItems.length === 0) {
+        if (progressEl) progressEl.textContent = '❌ 未能匹配到集换社卡牌版本 ID，请检查网络连接';
+        return;
+      }
+
+      const targetSelectVal = document.getElementById('jhsTargetWishlistSelect')?.value || 'new';
+      const wishName = document.getElementById('jhsWishlistNameInput')?.value.trim() || `《符文战场》选购单_${new Date().toLocaleDateString('zh-CN')}`;
+      const ignoreVersion = document.getElementById('jhsIgnoreVersionCheck')?.checked ? 1 : 0;
+
+      let wishListId = targetSelectVal !== 'new' ? targetSelectVal : null;
+
+      if (!wishListId) {
+        if (progressEl) progressEl.textContent = `⏳ Step 2/3：正在集换社创建心愿单「${wishName}」...`;
+        const createResp = await fetch(`${JHS_API_BASE}/wish-list?game_key=lol&game_sub_key=default`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            Authorization: `Bearer ${jhsState.token}`
+          },
+          body: JSON.stringify({
+            name: wishName,
+            game_key: 'lol',
+            game_sub_key: 'default'
+          })
+        });
+
+        const createJson = await createResp.json().catch(() => ({}));
+        if (!createResp.ok || createJson.code === 401 || createJson.message?.includes('登录')) {
+          throw new Error(createJson.message || createJson.msg || `创建心愿单失败 (HTTP ${createResp.status})，请检查 Token 是否有效`);
+        }
+        wishListId =
+          createJson?.wish_list_id ||
+          createJson?.data?.wish_list_id ||
+          createJson?.id ||
+          createJson?.data?.id;
+
+        if (!wishListId) {
+          throw new Error(createJson?.message || '未能获取到新创建的集换社 wish_list_id，请检查 Token 权限');
+        }
+      }
+
+      // Step 3: 逐张写入卡牌到该心愿单
+      let successCount = 0;
+      for (let i = 0; i < validItems.length; i++) {
+        const { card, qty, ver } = validItems[i];
+        if (progressEl) {
+          progressEl.textContent = `⏳ Step 3/3：正在写入卡牌 (${i + 1}/${validItems.length})：${card.name} ×${qty}...`;
+        }
+        try {
+          const addResp = await fetch(`${JHS_API_BASE}/wishes/add?game_key=lol&game_sub_key=default`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+              Authorization: `Bearer ${jhsState.token}`
+            },
+            body: JSON.stringify({
+              card_version_id: Number(ver.id),
+              wish_list_id: Number(wishListId),
+              quantity: Number(qty),
+              game_key: 'lol',
+              game_sub_key: 'default',
+              ignore_card_version: ignoreVersion
+            })
+          });
+          if (addResp.ok) successCount++;
+        } catch (e) {
+          // 单张异常继续下一张
+        }
+      }
+
+      if (progressEl) {
+        progressEl.textContent = `🎉 同步完成！成功将 ${successCount}/${validItems.length} 种卡牌写入集换社心愿单 (#${wishListId})`;
+      }
+
+      const appDeepLink = `jihuanshe://www.jihuanshe.com/app/wishList?wishListId=${wishListId}&gameKey=lol&gameSubKey=default`;
+      const webShareLink = `https://www.jihuanshe.com/app/wishCards?wishListId=${wishListId}&gameKey=lol&gameSubKey=default`;
+      const qrImgUrl = `${JHS_API_BASE}/share/wish-list-qrcode?game_key=lol&game_sub_key=default&wish_list_id=${wishListId}&width=240`;
+
+      const titleEl = document.getElementById('jhsCreatedWishTitle');
+      const appLinkEl = document.getElementById('jhsOpenCreatedWishAppLink');
+      const webLinkEl = document.getElementById('jhsOpenCreatedWishWebLink');
+      const qrImgEl = document.getElementById('jhsCreatedWishQrImg');
+      const copyUrlBtn = document.getElementById('jhsCopyCreatedWishUrlBtn');
+
+      if (titleEl) titleEl.textContent = `✅ 心愿单「${wishName}」(#${wishListId}) 已同步 ${successCount} 种卡牌！`;
+      if (appLinkEl) appLinkEl.href = appDeepLink;
+      if (webLinkEl) webLinkEl.href = webShareLink;
+      if (qrImgEl) qrImgEl.src = qrImgUrl;
+      if (copyUrlBtn) {
+        copyUrlBtn.onclick = async () => {
+          await navigator.clipboard.writeText(webShareLink);
+          showToast('📋 心愿单分享链接已复制到剪贴板！');
+        };
+      }
+      if (resultBox) resultBox.style.display = 'block';
+      showToast('🎉 集换社心愿单创建成功！可直接点击「在集换社 App 打开」去一键配单');
+    } catch (err) {
+      if (progressEl) progressEl.textContent = `❌ ${err.message || '同步失败'}`;
+      showToast(`⚠️ ${err.message || '集换社心愿单创建失败'}`);
+    } finally {
+      if (createBtn) createBtn.disabled = false;
+    }
+  }
+
+  // 解析集换社卖家店铺链接，并与当前购物车做 1v1 库存及价格比对
+  async function scanJhsSellerStore() {
+    const rawInput = document.getElementById('jhsSellerUrlInput')?.value.trim() || '';
+    if (!rawInput) {
+      showToast('请先粘贴集换社卖家店铺分享链接或卖家 userId');
+      return;
+    }
+
+    const uidMatch =
+      rawInput.match(/(?:userId|user_id|seller_user_id)=(\d+)/i) ||
+      rawInput.match(/^\s*(\d{4,12})\s*$/);
+    if (!uidMatch) {
+      showToast('⚠️ 未能从输入内容中识别出卖家 userId，请粘贴集换社店铺分享链接（含 userId=...）或纯数字 ID');
+      return;
+    }
+
+    const userId = uidMatch[1];
+    const resultBox = document.getElementById('jhsShopMatchResultBox');
+    if (resultBox) {
+      resultBox.innerHTML = `<div style="text-align:center;padding:30px;color:#fdba74;">⏳ 正在扫描集换社卖家 (#${userId}) 的《符文战场》在售库存并与购物车进行 1v1 比对...</div>`;
+    }
+
+    try {
+      await ensureCartJhsPricesLoaded(false);
+      const shareUrl = `https://www.jihuanshe.com/app/sellCards?userId=${userId}&gameKey=lol&gameSubKey=default`;
+      const apiUrl = `${JHS_API_BASE}/share/sell-list?user_id=${encodeURIComponent(userId)}&game_key=lol&game_sub_key=default&page=1&url=${encodeURIComponent(shareUrl)}`;
+
+      const resp = await fetch(apiUrl, { headers: { Accept: 'application/json' } });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok || json.code === 404) {
+        throw new Error(json.message || `读取卖家 (#${userId}) 在售列表失败`);
+      }
+
+      const sellerUser = json.seller || json.user || json.data?.user || {};
+      const sellerName = sellerUser.username || sellerUser.name || json.username || `集换社卖家 #${userId}`;
+      const rawProducts =
+        Array.isArray(json.products) ? json.products :
+        Array.isArray(json.data?.data) ? json.data.data :
+        Array.isArray(json.data) ? json.data :
+        Array.isArray(json.sell_cards) ? json.sell_cards : [];
+
+      const entries = getCartEntriesSorted();
+      if (entries.length === 0) {
+        if (resultBox) {
+          resultBox.innerHTML = `<div style="text-align:center;padding:24px;color:var(--text-secondary);">已读取卖家「${escapeHtml(sellerName)}」共 ${rawProducts.length} 件商品，但您的购物车当前为空，请先添加卡牌后再比对。</div>`;
+        }
+        return;
+      }
+
+      const matchedList = [];
+      const missingList = [];
+      let totalMatchedKinds = 0;
+      let totalMatchedQty = 0;
+      let totalCartQty = 0;
+      let totalSellerCost = 0;
+
+      entries.forEach(({ card, qty }) => {
+        totalCartQty += qty;
+        const selectedVer = getSelectedJhsVersion(card);
+        const baseCode = normalizeCardCodeForJhs(card.id);
+        const dotPrefix = baseCode.replace('-', '·');
+
+        // 在卖家商品列表中查找匹配项
+        const candidates = rawProducts.filter(p => {
+          const pVerId = Number(p.card_version_id || p.id);
+          const pNum = String(p.number || p.card_version_number || p.card_version?.number || '').toUpperCase();
+          const pName = String(p.name_cn || p.card_name_cn || p.card_version?.name_cn || '').trim();
+          return (
+            (selectedVer && pVerId === Number(selectedVer.id)) ||
+            (pNum && (pNum.startsWith(dotPrefix) || pNum.startsWith(baseCode))) ||
+            (pName && pName === card.name)
+          );
+        });
+
+        if (candidates.length > 0) {
+          // 选该店最便宜的在售项
+          candidates.sort((a, b) => (parseFloat(a.min_price ?? a.price) || 99999) - (parseFloat(b.min_price ?? b.price) || 99999));
+          const best = candidates[0];
+          const unitPrice = parseFloat(best.min_price ?? best.price) || 0;
+          const stockQty = parseInt(best.quantity ?? best.count ?? best.stock ?? qty, 10) || qty;
+          const fulfillQty = Math.min(qty, stockQty);
+          totalMatchedKinds++;
+          totalMatchedQty += fulfillQty;
+          totalSellerCost += unitPrice * fulfillQty;
+          matchedList.push({
+            card,
+            needQty: qty,
+            stockQty,
+            fulfillQty,
+            unitPrice,
+            sellerItem: best
+          });
+        } else {
+          missingList.push({ card, needQty: qty, selectedVer });
+        }
+      });
+
+      const appShopDeepLink = `jihuanshe://www.jihuanshe.com/app/sellCards?userId=${userId}&gameKey=lol&gameSubKey=default`;
+
+      resultBox.innerHTML = `
+        <div class="jhs-summary-banner" style="margin-bottom:12px;">
+          <div>
+            <div style="font-size:15px;font-weight:800;color:#fed7aa;">🏪 卖家：${escapeHtml(sellerName)} (ID: ${userId})</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">
+              当前返回在售商品条目：${rawProducts.length} 条 · 齐卡率：<strong style="color:#86efac;">${totalMatchedKinds}/${entries.length} 种 (${totalMatchedQty}/${totalCartQty} 张)</strong>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <div class="jhs-stat-box">
+              <div class="val">¥${totalSellerCost.toFixed(2)}</div>
+              <div class="lbl">该店可配齐部分合计</div>
+            </div>
+            <a class="btn btn-jhs" href="${appShopDeepLink}" style="text-decoration:none;">📱 在集换社 App 打开该店选购</a>
+            <a class="btn btn-sm" href="${shareUrl}" target="_blank" rel="noopener" style="text-decoration:none;">🌐 网页查看店铺</a>
+          </div>
+        </div>
+
+        <div class="export-table-preview-box" style="max-height:280px;">
+          <table class="export-preview-table">
+            <thead>
+              <tr>
+                <th>状态</th>
+                <th>卡牌名称</th>
+                <th>需求数量</th>
+                <th>该店库存</th>
+                <th>该店单价</th>
+                <th>集换社全网底价</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${matchedList
+                .map(({ card, needQty, stockQty, fulfillQty, unitPrice }) => {
+                  const globalVer = getSelectedJhsVersion(card);
+                  const globalMin = parseFloat(globalVer?.min_price);
+                  return `
+                    <tr>
+                      <td><span style="color:#86efac;font-weight:700;">✅ 有货${fulfillQty < needQty ? ' (部分)' : ''}</span></td>
+                      <td style="font-weight:700;">${escapeHtml(card.name)} <span style="color:var(--text-muted);font-size:11px;">(${card.id})</span></td>
+                      <td>×${needQty}</td>
+                      <td style="color:#86efac;font-weight:700;">${stockQty} 张</td>
+                      <td style="color:#fdba74;font-weight:700;">¥${unitPrice.toFixed(2)}</td>
+                      <td style="color:var(--text-secondary);">${globalMin > 0 ? `¥${globalMin.toFixed(2)}` : '-'}</td>
+                    </tr>
+                  `;
+                })
+                .join('')}
+              ${missingList
+                .map(({ card, needQty, selectedVer }) => {
+                  const globalMin = parseFloat(selectedVer?.min_price);
+                  return `
+                    <tr style="opacity:0.65;">
+                      <td><span style="color:#f87171;">❌ 缺货</span></td>
+                      <td>${escapeHtml(card.name)} <span style="color:var(--text-muted);font-size:11px;">(${card.id})</span></td>
+                      <td>×${needQty}</td>
+                      <td>0</td>
+                      <td>-</td>
+                      <td>${globalMin > 0 ? `¥${globalMin.toFixed(2)}` : '-'}</td>
+                    </tr>
+                  `;
+                })
+                .join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    } catch (err) {
+      if (resultBox) {
+        resultBox.innerHTML = `<div style="text-align:center;padding:24px;color:#f87171;">❌ ${escapeHtml(err.message || '店铺扫描失败')}</div>`;
+      }
+    }
+  }
+
+  // 从集换社心愿单分享链接 (wishCards?wishListId=...) 反向解析并导入到本工具购物车
+  async function importFromJhsWishUrl(customInput, replaceMode = null) {
+    const rawInput = (typeof customInput === 'string' ? customInput : document.getElementById('jhsImportWishUrlInput')?.value || '').trim();
+    if (!rawInput) {
+      showToast('请先粘贴集换社心愿单分享链接或心愿单 ID');
+      return false;
+    }
+
+    const idMatch =
+      rawInput.match(/(?:wishListId|wish_list_id)=(\d+)/i) ||
+      rawInput.match(/^\s*(\d{4,12})\s*$/);
+    if (!idMatch) {
+      showToast('⚠️ 未能识别出集换社 wishListId，请粘贴包含 wishListId=... 的分享链接或纯数字 ID');
+      return false;
+    }
+
+    const wishListId = idMatch[1];
+    const shouldReplace = replaceMode !== null ? replaceMode : Boolean(document.getElementById('jhsImportReplaceCheck')?.checked);
+    const statusBox = document.getElementById('jhsImportWishStatusBox');
+    if (statusBox) {
+      statusBox.textContent = `⏳ 正在从集换社读取心愿单 (#${wishListId}) 卡牌列表...`;
+    }
+
+    try {
+      const shareUrl = `https://www.jihuanshe.com/app/wishCards?wishListId=${wishListId}&gameKey=lol&gameSubKey=default`;
+      const apiUrl = `${JHS_API_BASE}/share/wish-list?wish_list_id=${encodeURIComponent(wishListId)}&game_key=lol&game_sub_key=default&page=1&url=${encodeURIComponent(shareUrl)}`;
+
+      const resp = await fetch(apiUrl, { headers: { Accept: 'application/json' } });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        throw new Error(json.message || `读取集换社心愿单 (#${wishListId}) 失败`);
+      }
+
+      const wishes =
+        Array.isArray(json.wishes) ? json.wishes :
+        Array.isArray(json.data?.wishes) ? json.data.wishes :
+        Array.isArray(json.data?.data) ? json.data.data :
+        Array.isArray(json.data) ? json.data : [];
+
+      if (wishes.length === 0) {
+        throw new Error(`心愿单 (#${wishListId}) 为空或未包含《符文战场》卡牌`);
+      }
+
+      if (shouldReplace) state.cart.clear();
+
+      let matchedKinds = 0;
+      let matchedTotalQty = 0;
+
+      wishes.forEach(w => {
+        const numStr = w.number || w.card_version_number || w.card_version?.number || '';
+        const nameCn = w.name_cn || w.card_name_cn || w.card_version?.name_cn || '';
+        const qty = parseInt(w.quantity ?? w.count ?? 1, 10) || 1;
+        const verId = w.card_version_id || w.card_version?.id;
+
+        const card = findCardByNameOrId(numStr, nameCn);
+        if (card) {
+          state.cart.set(card.id, (state.cart.get(card.id) || 0) + qty);
+          if (verId) jhsSelectedVersionMap.set(card.id, Number(verId));
+          matchedKinds++;
+          matchedTotalQty += qty;
+        }
+      });
+
+      if (matchedKinds === 0) {
+        throw new Error(`未能将心愿单 (#${wishListId}) 中的卡牌匹配到《符文战场》卡库`);
+      }
+
+      saveCartToStorage();
+      updateCartUI();
+      refreshCatalog(false);
+      renderJhsCartTable();
+
+      if (statusBox) {
+        statusBox.innerHTML = `<span style="color:#86efac;font-weight:700;">✅ 导入成功！已从集换社心愿单 (#${wishListId}) 导入 ${matchedKinds} 种卡牌（共 ${matchedTotalQty} 张）</span>`;
+      }
+      showToast(`🎉 已从集换社心愿单 (#${wishListId}) 导入 ${matchedKinds} 种 / ${matchedTotalQty} 张卡牌！`);
+      return true;
+    } catch (err) {
+      if (statusBox) {
+        statusBox.innerHTML = `<span style="color:#f87171;">❌ ${escapeHtml(err.message || '心愿单导入失败')}</span>`;
+      }
+      showToast(`⚠️ ${err.message || '心愿单导入失败'}`);
+      return false;
+    }
+  }
+
   // 初始化下拉选项与事件绑定
   function init() {
     loadCartFromStorage();
+    loadJhsCacheFromSession();
 
     // 初始化系列下拉框（主工具栏 + 导出弹窗工具栏）
     const setSelect = document.getElementById('setSelect');
@@ -2061,6 +3037,8 @@
       'boardGroupSelect',
       'boardColsSelect',
       'boardShowCaptionCheck',
+      'boardShowJhsPriceCheck',
+      'boardJhsAiCleanModeCheck',
       'boardFilterDomain',
       'boardFilterType',
       'boardFilterRarity'
@@ -2162,6 +3140,14 @@
 
     document.getElementById('presetAllColsBtn').addEventListener('click', () => {
       document.querySelectorAll('.export-col-check').forEach(chk => { chk.checked = true; });
+      syncExportColPills();
+    });
+
+    document.getElementById('presetJhsColsBtn')?.addEventListener('click', () => {
+      const jhsCols = new Set(['jhsNumber', 'jhsRarity', 'jhsPrice', 'jhsSubtotal']);
+      document.querySelectorAll('.export-col-check').forEach(chk => {
+        chk.checked = jhsCols.has(chk.value);
+      });
       syncExportColPills();
     });
 
@@ -2302,6 +3288,164 @@
         document.documentElement.setAttribute('data-theme', 'light');
       }
     });
+
+    // =====================================================================
+    // 集换社 (Jihuanshe) App 深度联动中心事件绑定
+    // =====================================================================
+    const handleOpenJhsHub = () => {
+      if (window.innerWidth <= 960) setCartDrawerOpen(false);
+      openJhsHubModal();
+    };
+    document.getElementById('openJhsModalBtn')?.addEventListener('click', handleOpenJhsHub);
+    document.getElementById('cartOpenJhsBtn')?.addEventListener('click', handleOpenJhsHub);
+    document.getElementById('mobileJhsBarBtn')?.addEventListener('click', handleOpenJhsHub);
+
+    document.getElementById('jhsHubTabs')?.addEventListener('click', e => {
+      const btn = e.target.closest('.jhs-tab-btn');
+      if (!btn || !btn.dataset.jhsTab) return;
+      switchJhsHubTab(btn.dataset.jhsTab);
+    });
+
+    document.getElementById('jhsRefreshPricesBtn')?.addEventListener('click', async () => {
+      if (state.cart.size === 0) {
+        showToast('购物车为空，请先选择卡牌');
+        return;
+      }
+      await ensureCartJhsPricesLoaded(true, () => {
+        renderJhsCartTable();
+      });
+      renderJhsCartTable();
+      showToast('🔄 已刷新集换社实时在售最低底价！');
+    });
+
+    // 表格内切换单张卡牌的集换社版本下拉框
+    document.getElementById('jhsCartTableTbody')?.addEventListener('change', e => {
+      const sel = e.target.closest('.jhs-version-select');
+      if (!sel) return;
+      const cid = sel.dataset.cardId;
+      const verId = parseInt(sel.value, 10);
+      if (cid && Number.isFinite(verId)) {
+        jhsSelectedVersionMap.set(cid, verId);
+        renderJhsCartTable();
+      }
+    });
+
+    // 账号 Token 配置折叠与保存
+    document.getElementById('jhsToggleAuthBoxBtn')?.addEventListener('click', () => {
+      const box = document.getElementById('jhsAuthConfigBox');
+      if (box) {
+        box.style.display = box.style.display === 'none' ? 'block' : 'none';
+      }
+    });
+
+    document.getElementById('jhsSaveTokenBtn')?.addEventListener('click', () => {
+      const val = document.getElementById('jhsTokenInput')?.value.trim() || '';
+      const cleanToken = val.replace(/^Bearer\s+/i, '').trim();
+      if (!cleanToken) {
+        showToast('请先粘贴有效的集换社 Bearer Token');
+        return;
+      }
+      jhsState.token = cleanToken;
+      localStorage.setItem(JHS_TOKEN_STORAGE_KEY, cleanToken);
+      updateJhsTokenBadgeUI();
+      fetchUserJhsWishlists();
+      showToast('✅ 集换社 Token 已保存，现在可一键创建云端心愿单！');
+    });
+
+    document.getElementById('jhsClearTokenBtn')?.addEventListener('click', () => {
+      jhsState.token = '';
+      localStorage.removeItem(JHS_TOKEN_STORAGE_KEY);
+      const input = document.getElementById('jhsTokenInput');
+      if (input) input.value = '';
+      updateJhsTokenBadgeUI();
+      showToast('🗑️ 已清除保存的集换社 Token');
+    });
+
+    // 集换社手机验证码快捷登录获取 Token
+    document.getElementById('jhsSendSmsBtn')?.addEventListener('click', async () => {
+      const phone = document.getElementById('jhsPhoneInput')?.value.trim() || '';
+      if (!/^1\d{10}$/.test(phone)) {
+        showToast('请输入有效的 11 位中国大陆手机号');
+        return;
+      }
+      try {
+        const resp = await fetch(`${JHS_API_BASE}/auth/send-sms`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ phone, area_code: '86', type: 'login' })
+        });
+        const json = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          throw new Error(json.message || json.msg || '验证码发送失败，建议直接复制网页端 Token');
+        }
+        showToast('📲 验证码已发送，请查收短信');
+      } catch (err) {
+        showToast(`⚠️ ${err.message}`);
+      }
+    });
+
+    document.getElementById('jhsSmsLoginBtn')?.addEventListener('click', async () => {
+      const phone = document.getElementById('jhsPhoneInput')?.value.trim() || '';
+      const code = document.getElementById('jhsSmsCodeInput')?.value.trim() || '';
+      if (!phone || !code) {
+        showToast('请填写手机号和短信验证码');
+        return;
+      }
+      try {
+        const resp = await fetch(`${JHS_API_BASE}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ phone, area_code: '86', verify_code: code, code })
+        });
+        const json = await resp.json().catch(() => ({}));
+        const token = json?.token || json?.access_token || json?.data?.token || json?.data?.access_token;
+        if (!resp.ok || !token) {
+          throw new Error(json.message || json.msg || '验证码登录失败，请检查验证码或直接粘贴 Token');
+        }
+        jhsState.token = token;
+        localStorage.setItem(JHS_TOKEN_STORAGE_KEY, token);
+        const input = document.getElementById('jhsTokenInput');
+        if (input) input.value = token;
+        updateJhsTokenBadgeUI();
+        fetchUserJhsWishlists();
+        showToast('🎉 登录成功！已自动获取并保存集换社 Token');
+      } catch (err) {
+        showToast(`⚠️ ${err.message}`);
+      }
+    });
+
+    // 一键创建并同步心愿单按钮
+    document.getElementById('jhsCreateWishlistBtn')?.addEventListener('click', createJhsWishlistFromCart);
+
+    // 快捷跳转：生成集换社 AI 识卡无遮挡纯净图
+    document.getElementById('jhsQuickAiBoardBtn')?.addEventListener('click', () => {
+      document.getElementById('jhsHubModal').classList.remove('open');
+      const aiChk = document.getElementById('boardJhsAiCleanModeCheck');
+      if (aiChk) aiChk.checked = true;
+      renderVisualPreviewBoard();
+      document.getElementById('previewBoardModal').classList.add('open');
+      showToast('🤖 已开启「集换社 AI 识卡纯净图」模式，点击上方「下载高清截图」即可保存相册识卡！');
+    });
+
+    // 快捷复制：集换社配单文本
+    document.getElementById('jhsQuickCopyTextBtn')?.addEventListener('click', async () => {
+      if (state.cart.size === 0) {
+        showToast('购物车为空，请先选择卡牌');
+        return;
+      }
+      await ensureCartJhsPricesLoaded(false);
+      const formatSel = document.getElementById('textFormatSelect');
+      const prevFormat = formatSel ? formatSel.value : 'aligned';
+      if (formatSel) formatSel.value = 'jhs_wishlist';
+      const txt = buildTextTableString();
+      if (formatSel) formatSel.value = prevFormat;
+      await navigator.clipboard.writeText(txt);
+      showToast('📋 已复制集换社心愿单配卡与底价清单到剪贴板！');
+    });
+
+    // 卖家店铺 1v1 齐卡扫描与心愿单链接导入
+    document.getElementById('jhsScanSellerBtn')?.addEventListener('click', scanJhsSellerStore);
+    document.getElementById('jhsImportWishUrlBtn')?.addEventListener('click', () => importFromJhsWishUrl());
 
     // 初始渲染
     updateCartUI();

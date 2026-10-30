@@ -1262,6 +1262,97 @@ img.battlefield-rot-img {
   display: flex;
 }
 
+/* Jihuanshe Integration Styles */
+.btn-jhs {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  color: #fff;
+  border-color: #fb923c;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(249, 115, 22, 0.35);
+}
+.btn-jhs:hover {
+  background: linear-gradient(135deg, #fb923c 0%, #f97316 100%);
+  border-color: #fed7aa;
+  color: #fff;
+}
+
+.jhs-summary-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgba(249, 115, 22, 0.14) 0%, rgba(234, 179, 8, 0.08) 100%);
+  border: 1px solid rgba(249, 115, 22, 0.4);
+}
+
+.jhs-hub-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.jhs-tab-btn {
+  flex: 1 1 200px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+.jhs-tab-btn:hover {
+  color: var(--text-main);
+  border-color: #fb923c;
+}
+.jhs-tab-btn.active {
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.25) 0%, rgba(234, 88, 12, 0.18) 100%);
+  color: #fdba74;
+  border-color: #f97316;
+  box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.35);
+}
+[data-theme="light"] .jhs-tab-btn.active {
+  color: #c2410c;
+}
+
+.jhs-sync-card {
+  background: var(--bg-elevated);
+  border: 1px solid rgba(249, 115, 22, 0.35);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+.jhs-sync-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.jhs-auth-box {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border-subtle);
+}
+
+.board-card-item .jhs-price-tag {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  background: rgba(15, 23, 42, 0.92);
+  color: #fb923c;
+  border: 1.5px solid #f97316;
+  font-weight: 800;
+  font-size: 12px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.75);
+}
+
 /* Desktop / Mobile helper classes */
 .mobile-only-btn {
   display: none !important;
@@ -1366,11 +1457,16 @@ img.battlefield-rot-img {
     order: 2;
     gap: 6px;
   }
-  /* 手机顶部栏保留「筛选」、「预览截图」与「主题切换」，其余收纳在底部常驻导航栏 */
+  /* 手机顶部栏保留「筛选」、「集换社」、「预览截图」与「主题切换」，其余收纳在底部常驻导航栏 */
   #openImportModalBtn,
   #openTextExportBtn,
   #toggleCartSidebarBtn {
     display: none !important;
+  }
+  #openJhsModalBtn {
+    height: 32px;
+    padding: 0 9px;
+    font-size: 12px;
   }
   #openPreviewBoardBtn {
     height: 32px;
@@ -1486,10 +1582,10 @@ img.battlefield-rot-img {
     background: rgba(15, 22, 36, 0.96);
     backdrop-filter: blur(14px);
     border-top: 1px solid var(--border-strong);
-    padding: 6px 10px calc(6px + env(safe-area-inset-bottom, 0px));
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
     display: grid;
-    grid-template-columns: 1.35fr 1fr 1fr 0.9fr;
-    gap: 6px;
+    grid-template-columns: 1.3fr 0.9fr 0.95fr 0.95fr 0.8fr;
+    gap: 5px;
     box-shadow: 0 -8px 25px rgba(0, 0, 0, 0.55);
   }
   [data-theme="light"] .mobile-bottom-bar {
